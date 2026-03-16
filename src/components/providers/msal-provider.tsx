@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   PublicClientApplication,
   EventType,
@@ -11,11 +11,6 @@ import { MsalProvider } from "@azure/msal-react";
 import { msalConfig } from "@/lib/msal-config";
 
 const msalInstance = new PublicClientApplication(msalConfig);
-
-const accounts = msalInstance.getAllAccounts();
-if (accounts.length > 0) {
-  msalInstance.setActiveAccount(accounts[0]);
-}
 
 msalInstance.addEventCallback((event: EventMessage) => {
   if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
@@ -29,5 +24,39 @@ interface MsalProviderWrapperProps {
 }
 
 export function MsalProviderWrapper({ children }: MsalProviderWrapperProps) {
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    msalInstance
+      .initialize()
+      .then(() => {
+        // Handle any redirect response (e.g. auth code in URL hash)
+        return msalInstance.handleRedirectPromise();
+      })
+      .then((response) => {
+        if (response) {
+          msalInstance.setActiveAccount(response.account);
+        } else {
+          const accounts = msalInstance.getAllAccounts();
+          if (accounts.length > 0) {
+            msalInstance.setActiveAccount(accounts[0]);
+          }
+        }
+        setIsInitialized(true);
+      })
+      .catch((error) => {
+        console.error("MSAL initialization failed:", error);
+        setIsInitialized(true);
+      });
+  }, []);
+
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
   return <MsalProvider instance={msalInstance}>{children}</MsalProvider>;
 }
