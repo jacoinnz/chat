@@ -1,7 +1,7 @@
 "use client";
 
 import { useMsal } from "@azure/msal-react";
-import { loginRequest } from "@/lib/msal-config";
+import { graphScopes } from "@/lib/msal-config";
 import { Button } from "@/components/ui/button";
 
 export function LoginButton() {
@@ -10,7 +10,10 @@ export function LoginButton() {
 
   const handleLogin = async () => {
     try {
-      await instance.loginPopup(loginRequest);
+      await instance.loginPopup({
+        scopes: graphScopes.search,
+        redirectUri: "/redirect.html",
+      });
     } catch (error) {
       console.error("Login failed:", error);
     }
@@ -20,6 +23,7 @@ export function LoginButton() {
     try {
       await instance.logoutPopup({
         postLogoutRedirectUri: "/",
+        mainWindowRedirectUri: "/",
       });
     } catch (error) {
       console.error("Logout failed:", error);
