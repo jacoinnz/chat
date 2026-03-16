@@ -26,10 +26,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-6 px-4">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 sm:gap-6 px-3 sm:px-4">
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold">SharePoint Search</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold">SharePoint Search</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Sign in with your Microsoft 365 account to search SharePoint files.
           </p>
         </div>

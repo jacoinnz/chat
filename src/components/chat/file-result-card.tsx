@@ -32,26 +32,26 @@ export function FileResultCard({ hit }: FileResultCardProps) {
   };
 
   return (
-    <Card className="p-3 bg-background hover:bg-accent/50 transition-colors">
-      <div className="flex items-start gap-3">
-        <div className="text-2xl shrink-0 mt-0.5" aria-hidden="true">
+    <Card className="p-2 sm:p-3 bg-background hover:bg-accent/50 transition-colors">
+      <div className="flex items-start gap-2 sm:gap-3">
+        <div className="text-lg sm:text-2xl shrink-0 mt-0.5" aria-hidden="true">
           {fileType.emoji}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm truncate">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="font-medium text-xs sm:text-sm truncate">
               {resource.name}
             </span>
             <Badge
               variant="secondary"
-              className={`text-xs shrink-0 ${fileType.color}`}
+              className={`text-[10px] sm:text-xs shrink-0 ${fileType.color}`}
             >
               {fileType.label}
             </Badge>
           </div>
 
-          <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+          <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 space-y-0.5">
             <div className="truncate">
               Site: {siteName} &middot; {folderPath}
             </div>
@@ -64,12 +64,12 @@ export function FileResultCard({ hit }: FileResultCardProps) {
             )}
           </div>
 
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
             <Button
               size="sm"
               variant="default"
               onClick={handleOpen}
-              className="h-7 text-xs"
+              className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3"
             >
               Open
             </Button>
@@ -77,7 +77,7 @@ export function FileResultCard({ hit }: FileResultCardProps) {
               size="sm"
               variant="outline"
               onClick={handleDownload}
-              className="h-7 text-xs"
+              className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3"
             >
               Download
             </Button>

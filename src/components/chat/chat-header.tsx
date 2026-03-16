@@ -16,17 +16,17 @@ export function ChatHeader() {
       .slice(0, 2) || "?";
 
   return (
-    <header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold">SharePoint Search</h1>
+    <header className="flex items-center justify-between px-2 py-2 sm:px-4 sm:py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <h1 className="text-sm sm:text-lg font-semibold">SharePoint Search</h1>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {account && (
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <Avatar className="h-8 w-8">
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
             </Avatar>
-            <span className="text-sm text-muted-foreground hidden sm:inline">
+            <span className="text-sm text-muted-foreground hidden md:inline">
               {account.name}
             </span>
           </div>

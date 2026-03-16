@@ -39,12 +39,6 @@ export function MsalProviderWrapper({ children }: MsalProviderWrapperProps) {
             msalInstance.setActiveAccount(accounts[0]);
           }
         }
-
-        // Clean up the auth code hash from the URL
-        if (window.location.hash.includes("code=")) {
-          window.history.replaceState(null, "", window.location.pathname);
-        }
-
         setIsInitialized(true);
       })
       .catch((error) => {

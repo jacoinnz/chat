@@ -8,14 +8,22 @@ export function LoginButton() {
   const { instance, accounts } = useMsal();
   const isLoggedIn = accounts.length > 0;
 
-  const handleLogin = () => {
-    instance.loginRedirect(loginRequest);
+  const handleLogin = async () => {
+    try {
+      await instance.loginPopup(loginRequest);
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
   };
 
-  const handleLogout = () => {
-    instance.logoutRedirect({
-      postLogoutRedirectUri: "/",
-    });
+  const handleLogout = async () => {
+    try {
+      await instance.logoutPopup({
+        postLogoutRedirectUri: "/",
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   if (isLoggedIn) {
@@ -26,5 +34,9 @@ export function LoginButton() {
     );
   }
 
-  return <Button onClick={handleLogin}>Sign in with Microsoft</Button>;
+  return (
+    <Button onClick={handleLogin} size="sm" className="sm:text-sm text-xs">
+      Sign in with Microsoft
+    </Button>
+  );
 }

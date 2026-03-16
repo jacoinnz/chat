@@ -13,14 +13,14 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (message.isLoading) {
     return (
       <div className="flex justify-start">
-        <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%]">
+        <div className="bg-muted rounded-2xl rounded-bl-md px-3 py-2 sm:px-4 sm:py-3 max-w-[95%] sm:max-w-[85%]">
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
               <span className="h-2 w-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.3s]" />
               <span className="h-2 w-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.15s]" />
               <span className="h-2 w-2 bg-muted-foreground/40 rounded-full animate-bounce" />
             </div>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               Searching SharePoint...
             </span>
           </div>
@@ -32,18 +32,20 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`rounded-2xl px-4 py-3 max-w-[85%] ${
+        className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-3 max-w-[95%] sm:max-w-[85%] ${
           isUser
             ? "bg-primary text-primary-foreground rounded-br-md"
             : "bg-muted rounded-bl-md"
         }`}
       >
         {message.content && (
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          <p className="text-xs sm:text-sm whitespace-pre-wrap">
+            {message.content}
+          </p>
         )}
 
         {message.results && message.results.length > 0 && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-2 sm:mt-3 space-y-2">
             {message.results.map((hit) => (
               <FileResultCard key={hit.hitId} hit={hit} />
             ))}
