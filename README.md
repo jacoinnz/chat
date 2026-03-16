@@ -11,7 +11,7 @@ A multi-tenant SaaS chat app for searching SharePoint files. Users from any Micr
 3. Supported account types: **Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)**
 4. Redirect URI: Select **Single-page application (SPA)** and add:
    - `http://localhost:3000`
-   - `https://chat-iota-cyan.vercel.app`
+   - `https://chat-mirutech.vercel.app`
 5. Go to API permissions > Add: `User.Read`, `Files.Read.All`, `Sites.Read.All` (Delegated)
 6. Grant admin consent for your own tenant
 
@@ -42,7 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 No per-client setup is needed on your side. Send the client's IT admin this consent URL:
 
 ```
-https://login.microsoftonline.com/common/adminconsent?client_id=YOUR_CLIENT_ID&redirect_uri=https://chat-iota-cyan.vercel.app
+https://login.microsoftonline.com/common/adminconsent?client_id=YOUR_CLIENT_ID&redirect_uri=https://chat-mirutech.vercel.app
 ```
 
 The admin clicks the link, signs in, and approves the permissions. After that, all users in their organisation can sign in and search their SharePoint files.
