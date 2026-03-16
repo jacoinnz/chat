@@ -27,24 +27,32 @@ export function MsalProviderWrapper({ children }: MsalProviderWrapperProps) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    msalInstance
-      .initialize()
-      .then(() => msalInstance.handleRedirectPromise())
-      .then((response) => {
-        if (response) {
-          msalInstance.setActiveAccount(response.account);
+    const init = async () => {
+      try {
+        await msalInstance.initialize();
+
+        // Only handle redirect if there's an auth code in the URL
+        // This prevents interfering with popup flow
+        if (window.location.hash.includes("code=")) {
+          const response = await msalInstance.handleRedirectPromise();
+          if (response) {
+            msalInstance.setActiveAccount(response.account);
+          }
         } else {
+          // No redirect to handle, just check for existing accounts
           const accounts = msalInstance.getAllAccounts();
           if (accounts.length > 0) {
             msalInstance.setActiveAccount(accounts[0]);
           }
         }
-        setIsInitialized(true);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("MSAL initialization failed:", error);
+      } finally {
         setIsInitialized(true);
-      });
+      }
+    };
+
+    init();
   }, []);
 
   if (!isInitialized) {
