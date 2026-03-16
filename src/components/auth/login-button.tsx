@@ -12,7 +12,7 @@ export function LoginButton() {
     try {
       await instance.loginPopup({
         scopes: graphScopes.search,
-        redirectUri: "/redirect.html",
+        redirectUri: "/redirect",
       });
     } catch (error) {
       console.error("Login failed:", error);
