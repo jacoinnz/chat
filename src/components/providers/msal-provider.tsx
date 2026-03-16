@@ -6,6 +6,7 @@ import {
   EventType,
   EventMessage,
   AuthenticationResult,
+  BrowserAuthError,
 } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
 import { msalConfig } from "@/lib/msal-config";
@@ -31,15 +32,26 @@ export function MsalProviderWrapper({ children }: MsalProviderWrapperProps) {
       try {
         await msalInstance.initialize();
 
-        // Only handle redirect if there's an auth code in the URL
-        // This prevents interfering with popup flow
-        if (window.location.hash.includes("code=")) {
+        // MUST always call handleRedirectPromise to clear stale interaction state
+        try {
           const response = await msalInstance.handleRedirectPromise();
           if (response) {
             msalInstance.setActiveAccount(response.account);
           }
-        } else {
-          // No redirect to handle, just check for existing accounts
+        } catch (redirectError) {
+          // Stale cache from failed previous attempts — safe to ignore
+          if (
+            redirectError instanceof BrowserAuthError &&
+            redirectError.errorCode === "no_token_request_cache_error"
+          ) {
+            console.warn("Cleared stale MSAL interaction state");
+          } else {
+            console.error("Redirect handling error:", redirectError);
+          }
+        }
+
+        // Set active account from cache if not already set
+        if (!msalInstance.getActiveAccount()) {
           const accounts = msalInstance.getAllAccounts();
           if (accounts.length > 0) {
             msalInstance.setActiveAccount(accounts[0]);
