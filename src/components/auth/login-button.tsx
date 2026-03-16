@@ -8,22 +8,14 @@ export function LoginButton() {
   const { instance, accounts } = useMsal();
   const isLoggedIn = accounts.length > 0;
 
-  const handleLogin = async () => {
-    try {
-      await instance.loginPopup(loginRequest);
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
+  const handleLogin = () => {
+    instance.loginRedirect(loginRequest);
   };
 
-  const handleLogout = async () => {
-    try {
-      await instance.logoutPopup({
-        postLogoutRedirectUri: "/",
-      });
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+  const handleLogout = () => {
+    instance.logoutRedirect({
+      postLogoutRedirectUri: "/",
+    });
   };
 
   if (isLoggedIn) {

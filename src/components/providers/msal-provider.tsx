@@ -29,10 +29,7 @@ export function MsalProviderWrapper({ children }: MsalProviderWrapperProps) {
   useEffect(() => {
     msalInstance
       .initialize()
-      .then(() => {
-        // Handle any redirect response (e.g. auth code in URL hash)
-        return msalInstance.handleRedirectPromise();
-      })
+      .then(() => msalInstance.handleRedirectPromise())
       .then((response) => {
         if (response) {
           msalInstance.setActiveAccount(response.account);
@@ -42,6 +39,12 @@ export function MsalProviderWrapper({ children }: MsalProviderWrapperProps) {
             msalInstance.setActiveAccount(accounts[0]);
           }
         }
+
+        // Clean up the auth code hash from the URL
+        if (window.location.hash.includes("code=")) {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+
         setIsInitialized(true);
       })
       .catch((error) => {
