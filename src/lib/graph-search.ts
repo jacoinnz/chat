@@ -1,6 +1,6 @@
 import { IPublicClientApplication } from "@azure/msal-browser";
 import { graphScopes } from "./msal-config";
-import { buildKqlFilter, SEARCH_FIELDS, type MetadataFilters } from "./taxonomy";
+import { buildKqlFilter, SEARCH_FIELDS, type MetadataFilters, type TenantTaxonomyConfig } from "./taxonomy";
 import { deduplicateHits } from "./content-prep";
 import { analyzeIntent, type IntentResult } from "./intent";
 import { rankResults } from "./ranking";
@@ -80,7 +80,8 @@ export async function searchSharePoint(
   msalInstance: IPublicClientApplication,
   query: string,
   filters?: MetadataFilters,
-  pageSize: number = 15
+  pageSize: number = 15,
+  config?: TenantTaxonomyConfig
 ): Promise<{
   hits: SearchHit[];
   total: number;
@@ -89,20 +90,23 @@ export async function searchSharePoint(
 }> {
   const accessToken = await getAccessToken(msalInstance);
 
-  // Step 2: Identify intent
-  const intent = analyzeIntent(query);
+  // Step 2: Identify intent (using tenant config if available)
+  const intent = analyzeIntent(query, config);
 
   // Merge auto-detected filters with manual filters
   const mergedFilters = mergeFilters(filters || {}, intent.detectedFilters);
 
-  // Build KQL from merged filters + intent extras
-  const filterKql = buildKqlFilter(mergedFilters);
+  // Build KQL from merged filters + intent extras (using tenant config if available)
+  const filterKql = buildKqlFilter(mergedFilters, config);
   const intentKql = buildIntentKql(intent, mergedFilters);
 
   // Combine: sanitized refined query + filter KQL + intent KQL
   const safeQuery = sanitizeForKql(intent.refinedQuery);
   const kqlParts = [safeQuery, filterKql, intentKql].filter(Boolean);
   const queryString = kqlParts.join(" ");
+
+  // Use tenant-specific search fields or defaults
+  const searchFields = config?.searchFields ?? [...SEARCH_FIELDS];
 
   // Step 3: Query SharePoint via Graph Search API
   const requestBody = {
@@ -112,7 +116,7 @@ export async function searchSharePoint(
         query: {
           queryString,
         },
-        fields: [...SEARCH_FIELDS],
+        fields: searchFields,
         from: 0,
         size: pageSize,
       },

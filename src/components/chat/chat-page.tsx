@@ -8,11 +8,40 @@ import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { searchSharePoint, fetchUserSites } from "@/lib/graph-search";
 import { buildDocumentContext, buildConversationHistory } from "@/lib/context-builder";
+import { useTenantConfig } from "@/components/providers/tenant-config-provider";
+import { graphScopes } from "@/lib/msal-config";
 import type { MetadataFilters } from "@/lib/taxonomy";
 import type { ChatMessage, ChatApiRequest, SharePointSite } from "@/types/search";
 
+/** Fire-and-forget usage log. Non-blocking — failures are silently ignored. */
+async function logUsage(
+  instance: ReturnType<typeof useMsal>["instance"],
+  event: "search" | "chat" | "error",
+  errorCode?: string
+) {
+  try {
+    const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
+    if (!account) return;
+    const tokenResponse = await instance.acquireTokenSilent({
+      scopes: graphScopes.search,
+      account,
+    });
+    fetch("/api/usage", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenResponse.accessToken}`,
+      },
+      body: JSON.stringify({ event, errorCode }),
+    }).catch(() => {});
+  } catch {
+    // Silently ignore — usage logging is best-effort
+  }
+}
+
 export function ChatPage() {
   const { instance } = useMsal();
+  const { config } = useTenantConfig();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -62,8 +91,9 @@ export function ChatPage() {
       setIsSearching(true);
 
       try {
-        // Phase 1: Search SharePoint
-        const { hits, total, intent } = await searchSharePoint(instance, query, filters);
+        // Phase 1: Search SharePoint (with tenant config)
+        const { hits, total, intent } = await searchSharePoint(instance, query, filters, 15, config);
+        logUsage(instance, "search");
 
         if (hits.length === 0) {
           setMessages((prev) =>
@@ -168,6 +198,7 @@ export function ChatPage() {
               : m
           )
         );
+        logUsage(instance, "chat");
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           // Stream was aborted by user sending a new message
@@ -178,6 +209,8 @@ export function ChatPage() {
           error instanceof Error
             ? error.message
             : "An unexpected error occurred.";
+
+        logUsage(instance, "error", errorMsg);
 
         setMessages((prev) =>
           prev.map((m) =>
@@ -198,7 +231,7 @@ export function ChatPage() {
         abortRef.current = null;
       }
     },
-    [instance, filters, messages]
+    [instance, filters, messages, config]
   );
 
   return (

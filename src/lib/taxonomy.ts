@@ -20,6 +20,29 @@
 // See docs/ARCHITECTURE.md § Metadata & Taxonomy Layer for full setup.
 // ═══════════════════════════════════════════════════════════════════════
 
+import {
+  DEFAULT_TAXONOMY,
+  DEFAULT_CONTENT_TYPES,
+  DEFAULT_KQL_PROPERTY_MAP,
+  DEFAULT_SEARCH_FIELDS,
+} from "./taxonomy-defaults";
+
+// ── Tenant Config Interface ──────────────────────────────────────────
+// Matches the shape stored in the TenantConfig DB model.
+// Passed through the app to make taxonomy, KQL map, and search fields
+// dynamic per tenant.
+
+export interface TenantTaxonomyConfig {
+  taxonomy: {
+    department: string[];
+    sensitivity: string[];
+    status: string[];
+  };
+  contentTypes: string[];
+  kqlPropertyMap: Record<string, string>;
+  searchFields: string[];
+}
+
 // ── Tier 1: Built-In Properties ──────────────────────────────────────
 
 /** SharePoint content types — KQL: ContentType. Always indexed.
@@ -118,26 +141,28 @@ const KQL_PROPERTY_MAP: Record<string, string> = {
   status:      "Status",
 };
 
-/** Convert active filters to a KQL filter string */
-export function buildKqlFilter(filters: MetadataFilters): string {
+/** Convert active filters to a KQL filter string.
+ *  When config is provided, uses tenant-specific KQL property map. */
+export function buildKqlFilter(filters: MetadataFilters, config?: TenantTaxonomyConfig): string {
+  const propertyMap = config?.kqlPropertyMap ?? KQL_PROPERTY_MAP;
   const parts: string[] = [];
 
   // Handle approvedOnly toggle — ignored when explicit status is set to avoid
   // contradictory KQL (e.g. Status:"Approved" AND Status:"Draft")
   if (filters.approvedOnly && !filters.status) {
-    parts.push(`${KQL_PROPERTY_MAP.status}:"Approved"`);
+    parts.push(`${propertyMap.status || KQL_PROPERTY_MAP.status}:"Approved"`);
   }
 
   // Handle hideRestricted toggle — ignored when explicit sensitivity is set
   if (filters.hideRestricted && !filters.sensitivity) {
-    parts.push(`NOT ${KQL_PROPERTY_MAP.sensitivity}:"Restricted"`);
+    parts.push(`NOT ${propertyMap.sensitivity || KQL_PROPERTY_MAP.sensitivity}:"Restricted"`);
   }
 
   // String-valued taxonomy filters → mapped managed properties
   for (const [key, value] of Object.entries(filters)) {
     if (key === "approvedOnly" || key === "hideRestricted" || key === "fileType" || key === "dateRange" || key === "siteUrl") continue;
     if (typeof value === "string" && value) {
-      const property = KQL_PROPERTY_MAP[key];
+      const property = propertyMap[key];
       if (property) {
         parts.push(`${property}:"${value}"`);
       }

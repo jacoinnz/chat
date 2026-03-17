@@ -27,6 +27,7 @@ export const msalConfig: Configuration = {
 
 export const graphScopes = {
   search: ["User.Read", "Files.Read.All", "Sites.Read.All"],
+  admin: ["User.Read", "Directory.Read.All"],
 };
 
 export const loginRequest = {

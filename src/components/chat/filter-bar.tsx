@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { SlidersHorizontal, ChevronDown, ChevronUp, X } from "lucide-react";
-import { TAXONOMY, CONTENT_TYPES, FILE_TYPES, DATE_RANGES, type MetadataFilters } from "@/lib/taxonomy";
+import { FILE_TYPES, DATE_RANGES, type MetadataFilters } from "@/lib/taxonomy";
+import { useTenantConfig } from "@/components/providers/tenant-config-provider";
 import type { SharePointSite } from "@/types/search";
 
 interface FilterBarProps {
@@ -10,13 +11,6 @@ interface FilterBarProps {
   onChange: (filters: MetadataFilters) => void;
   sites: SharePointSite[];
 }
-
-const TAXONOMY_FIELDS = [
-  { key: "contentType" as const, label: "Content Type", options: CONTENT_TYPES },
-  { key: "department" as const, label: "Department", options: TAXONOMY.department },
-  { key: "sensitivity" as const, label: "Sensitivity", options: TAXONOMY.sensitivity },
-  { key: "status" as const, label: "Status", options: TAXONOMY.status },
-];
 
 const CHIP_LABELS: Record<string, string> = {
   contentType: "Type",
@@ -29,7 +23,16 @@ const CHIP_LABELS: Record<string, string> = {
 };
 
 export function FilterBar({ filters, onChange, sites }: FilterBarProps) {
+  const { config } = useTenantConfig();
   const [expanded, setExpanded] = useState(false);
+
+  // Build taxonomy fields from tenant config
+  const TAXONOMY_FIELDS = [
+    { key: "contentType" as const, label: "Content Type", options: config.contentTypes },
+    { key: "department" as const, label: "Department", options: config.taxonomy.department },
+    { key: "sensitivity" as const, label: "Sensitivity", options: config.taxonomy.sensitivity },
+    { key: "status" as const, label: "Status", options: config.taxonomy.status },
+  ];
 
   // Build a lookup from siteUrl → displayName for chip labels
   const siteNameMap = new Map(sites.map((s) => [s.webUrl, s.displayName]));

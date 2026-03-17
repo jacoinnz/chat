@@ -43,7 +43,33 @@ User Browser
 
 The app uses a single Azure AD app registration with `authority: https://login.microsoftonline.com/common`. Any Microsoft 365 organisation can use the app — the tenant admin grants consent once via the admin consent URL, and all users in that tenant can then sign in.
 
-No per-tenant configuration, database, or backend is required. Each user's access token determines which SharePoint files they can see.
+Each user's access token determines which SharePoint files they can see. Per-tenant metadata configuration is stored in PostgreSQL (Vercel Postgres) and managed through the admin portal at `/admin`.
+
+### Tenant Configuration Flow
+
+```
+Regular User                      Admin User
+    │                                 │
+    ├── GET /api/tenant-config        ├── GET /api/admin/config
+    │   ├── DB record exists?         │   ├── Auto-provisions tenant + config
+    │   │   ├── Yes → return config   │   │   (seeds defaults on first access)
+    │   │   └── No  → return defaults │   └── Returns full config
+    │   └── DB error → return defaults│
+    │                                 ├── PATCH /api/admin/taxonomy
+    └── Filter bar + intent detection │   └── Updates department/sensitivity/status
+        use tenant-specific values    │
+                                      ├── PATCH /api/admin/kql-map
+                                      │   └── Updates KQL property mappings
+                                      │
+                                      └── GET /api/admin/analytics
+                                          └── Aggregated usage stats
+```
+
+### Data Model (Prisma)
+
+- **Tenant** — Azure AD tenant GUID, name, timestamps
+- **TenantConfig** — 1:1 with Tenant. JSON columns: `taxonomy`, `contentTypes`, `kqlPropertyMap`, `searchFields`
+- **UsageLog** — Event type (search/chat/error), SHA-256 hashed user ID, timestamp. Indexed by `(tenantId, timestamp)` and `(tenantId, event)`.
 
 ## Authentication Flow
 
@@ -59,6 +85,7 @@ The popup/main window detection uses `sessionStorage` (per-window, survives redi
 ## Token Management
 
 - **Login**: `loginRedirect` with scopes `User.Read`, `Files.Read.All`, `Sites.Read.All`
+- **Admin portal**: Acquires additional scope `Directory.Read.All` for admin role verification
 - **Token refresh**: `acquireTokenSilent` (automatic, uses cached refresh token)
 - **Fallback**: `acquireTokenPopup` if silent fails (e.g., consent required)
 - **Storage**: `sessionStorage` (tokens cleared when browser closes; no cross-session persistence)
@@ -134,6 +161,18 @@ When `sortByRecency` is true (intent = "recent"), recency weights are tripled.
 
 ## Metadata & Taxonomy Layer
 
+### Dynamic Per-Tenant Configuration
+
+Taxonomy values, content types, KQL property mappings, and search fields are now **configurable per tenant** via the admin portal. The system uses a layered approach:
+
+1. **Hardcoded defaults** (`src/lib/taxonomy-defaults.ts`) — used when no tenant config exists
+2. **Database config** (`TenantConfig` model) — per-tenant overrides set by admin
+3. **Runtime resolution** — `TenantConfigProvider` loads config on mount, falls back to defaults on error
+
+The `TenantTaxonomyConfig` interface (in `taxonomy.ts`) is threaded through `buildKqlFilter()`, `analyzeIntent()`, and `searchSharePoint()` as an optional parameter. When provided, tenant-specific values are used instead of hardcoded constants.
+
+`FILE_TYPES` and `DATE_RANGES` are **not** tenant-configurable (built-in SharePoint properties).
+
 ### SharePoint Metadata Model (`src/lib/taxonomy.ts`)
 
 The metadata model has two tiers:
@@ -156,7 +195,7 @@ The metadata model has two tiers:
 | Sensitivity | `Sensitivity` | `RefinableString01` | Public, Internal, Confidential, Restricted |
 | Status | `Status` | `RefinableString02` | Draft, Approved, Archived |
 
-Custom properties use auto-mapped managed property names by default. If auto-mapping doesn't work, the tenant admin maps site columns to refinable property slots and updates `KQL_PROPERTY_MAP` in `taxonomy.ts`.
+Custom properties use auto-mapped managed property names by default. If auto-mapping doesn't work, the tenant admin can map site columns to refinable property slots via the admin portal at `/admin/kql-config` (or by editing `KQL_PROPERTY_MAP` in `taxonomy.ts` for the default config).
 
 ### Graph Search Fields
 
@@ -310,3 +349,70 @@ GET /organization/{tenantId}/branding/localizations/default/bannerLogo
 ```
 
 Falls back to `squareLogo`, then to plain text if no branding is configured.
+
+## Admin Portal
+
+### Architecture
+
+```
+Admin Browser                                Server
+  │                                            │
+  ├── 1. MSAL acquires token with              │
+  │      Directory.Read.All scope              │
+  │                                            │
+  ├── 2. AdminAuthGuard checks admin role      │
+  │      GET /me/memberOf ──────────────────► Graph API
+  │      ◄── directory roles ─────────────────┤
+  │      Check for Global Admin / SP Admin     │
+  │                                            │
+  ├── 3. Admin portal loads config             │
+  │      GET /api/admin/config ──────────────►│
+  │      (middleware extracts tenant from JWT)  ├── verifyAdminRole() → Graph API
+  │      ◄── tenant config ──────────────────┤  ├── Auto-provision if first visit
+  │                                            │  └── Return config from Postgres
+  │                                            │
+  ├── 4. Admin edits metadata/KQL/etc.         │
+  │      PATCH /api/admin/taxonomy ──────────►│
+  │      ◄── updated config ─────────────────┤
+  │                                            │
+  └── 5. Changes propagate to chat users       │
+         (TenantConfigProvider refetches       │
+          on next page load)                   │
+```
+
+### Auth Infrastructure
+
+**Edge Middleware** (`src/middleware.ts`):
+- Matches `/api/admin/*`, `/api/tenant-config`, `/api/usage`
+- Decodes JWT (no cryptographic verification — Microsoft-issued tokens verified by Graph on use)
+- Extracts `tid` (tenant ID) and `oid` (user ID) from token claims
+- Forwards as `x-tenant-id` and `x-user-id` headers to route handlers
+- Returns 401 for missing or malformed tokens
+
+**Admin Auth** (`src/lib/admin-auth.ts`):
+- `extractTenantInfo(request)` — parse JWT, compute SHA-256 of user OID
+- `verifyAdminRole(accessToken)` — call `GET /me/memberOf`, check for Global Administrator (`62e90394-...`) or SharePoint Administrator (`f28a1f94-...`) role template IDs
+
+**Client-Side Guard** (`src/components/admin/admin-auth-guard.tsx`):
+- Acquires token with `Directory.Read.All` scope
+- Calls Graph API to verify admin role before rendering the admin UI
+- Shows "Access Denied" page with link back to chat if not admin
+
+### Usage Analytics
+
+- Events logged via `POST /api/usage` from the chat client (fire-and-forget, non-blocking)
+- Three event types: `search`, `chat`, `error`
+- User identity anonymised via SHA-256 hash of Azure AD object ID
+- Rate limited: 100 events per user per minute (in-memory counter)
+- Analytics API returns aggregated counts + daily breakdown for configurable periods (7d/30d/90d)
+
+### Database Layer
+
+**Prisma 7** with `@prisma/adapter-pg` driver adapter:
+- Schema at `prisma/schema.prisma` (empty datasource block — URL provided via adapter)
+- Config at `prisma/prisma.config.ts` (datasource URL for migrations)
+- Singleton client at `src/lib/prisma.ts` (dev-safe global caching pattern)
+
+**Environment Variables:**
+- `POSTGRES_PRISMA_URL` — pooled connection string (for PrismaClient via PG adapter)
+- `POSTGRES_URL_NON_POOLING` — direct connection string (for Prisma migrations)

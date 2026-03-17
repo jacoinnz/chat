@@ -1,4 +1,4 @@
-import { TAXONOMY, CONTENT_TYPES, type MetadataFilters } from "./taxonomy";
+import { TAXONOMY, CONTENT_TYPES, type MetadataFilters, type TenantTaxonomyConfig } from "./taxonomy";
 
 export type QueryIntent =
   | "keyword"
@@ -53,33 +53,39 @@ function stripQuestionWords(query: string): string {
 
 /** Match query tokens against taxonomy values and return detected filters */
 function detectTaxonomyFilters(
-  query: string
+  query: string,
+  config?: TenantTaxonomyConfig
 ): Partial<MetadataFilters> {
   const filters: Partial<MetadataFilters> = {};
   const lower = query.toLowerCase();
 
-  for (const dept of TAXONOMY.department) {
+  const departments = config?.taxonomy.department ?? TAXONOMY.department;
+  const contentTypes = config?.contentTypes ?? (CONTENT_TYPES as unknown as string[]);
+  const sensitivities = config?.taxonomy.sensitivity ?? TAXONOMY.sensitivity;
+  const statuses = config?.taxonomy.status ?? TAXONOMY.status;
+
+  for (const dept of departments) {
     if (lower.includes(dept.toLowerCase())) {
       filters.department = dept;
       break;
     }
   }
 
-  for (const ct of CONTENT_TYPES) {
+  for (const ct of contentTypes) {
     if (lower.includes(ct.toLowerCase())) {
       filters.contentType = ct;
       break;
     }
   }
 
-  for (const sens of TAXONOMY.sensitivity) {
+  for (const sens of sensitivities) {
     if (lower.includes(sens.toLowerCase())) {
       filters.sensitivity = sens;
       break;
     }
   }
 
-  for (const status of TAXONOMY.status) {
+  for (const status of statuses) {
     if (lower.includes(status.toLowerCase())) {
       filters.status = status;
       break;
@@ -107,10 +113,11 @@ function detectAuthor(query: string): string | undefined {
   return undefined;
 }
 
-/** Analyze user query to determine intent, extract entities, and refine the query */
-export function analyzeIntent(query: string): IntentResult {
+/** Analyze user query to determine intent, extract entities, and refine the query.
+ *  When config is provided, uses tenant-specific taxonomy values for filter detection. */
+export function analyzeIntent(query: string, config?: TenantTaxonomyConfig): IntentResult {
   const trimmed = query.trim();
-  const detectedFilters = detectTaxonomyFilters(trimmed);
+  const detectedFilters = detectTaxonomyFilters(trimmed, config);
   const author = detectAuthor(trimmed);
   const fileType = detectFileType(trimmed);
   const isRecency = RECENCY_TERMS.test(trimmed);
