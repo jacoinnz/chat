@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SharePoint Search",
+  title: "Microsoft SharePoint Chatbot",
   description: "Search your SharePoint files with a chat-style interface",
 };
 

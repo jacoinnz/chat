@@ -42,7 +42,7 @@ export function ChatHeader() {
             className="h-6 sm:h-8 max-w-[120px] sm:max-w-[180px] object-contain"
           />
         ) : (
-          <h1 className="text-sm sm:text-lg font-semibold">SharePoint Search</h1>
+          <h1 className="text-sm sm:text-lg font-semibold">Microsoft SharePoint Chatbot</h1>
         )}
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
