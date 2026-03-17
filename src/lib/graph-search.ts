@@ -7,9 +7,16 @@ const GRAPH_SEARCH_ENDPOINT = "https://graph.microsoft.com/v1.0/search/query";
 async function getAccessToken(
   msalInstance: IPublicClientApplication
 ): Promise<string> {
-  const account = msalInstance.getActiveAccount();
+  let account = msalInstance.getActiveAccount();
   if (!account) {
-    throw new Error("No active account. Please sign in first.");
+    // Fallback: pick first account and set it as active
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      msalInstance.setActiveAccount(accounts[0]);
+      account = accounts[0];
+    } else {
+      throw new Error("No active account. Please sign in first.");
+    }
   }
 
   try {
