@@ -32,7 +32,7 @@ export function ChatHeader() {
   }, [logoUrl]);
 
   return (
-    <header className="flex items-center justify-between px-3 py-2 border-b border-[#0a2d4f] bg-[#0d3b66] text-white shadow-sm">
+    <header className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b border-[#0a2d4f] bg-[#0d3b66] text-white shadow-sm">
       <div className="flex items-center gap-2 sm:gap-3">
         {logoUrl ? (
           <img
