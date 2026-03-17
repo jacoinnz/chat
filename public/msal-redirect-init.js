@@ -1,0 +1,1 @@
+msalRedirectBridge.broadcastResponseToMainFrame().catch(console.error);
