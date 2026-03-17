@@ -14,16 +14,23 @@ export function LoginButton() {
         scopes: graphScopes.search,
         redirectUri: "/redirect.html",
       });
-    } catch (error) {
-      console.error("Login failed:", error);
+    } catch (popupError) {
+      console.warn("Popup login failed, trying redirect:", popupError);
+      // Fallback to redirect if popup fails
+      try {
+        await instance.loginRedirect({
+          scopes: graphScopes.search,
+        });
+      } catch (redirectError) {
+        console.error("Login failed:", redirectError);
+      }
     }
   };
 
   const handleLogout = async () => {
     try {
-      await instance.logoutPopup({
+      await instance.logoutRedirect({
         postLogoutRedirectUri: "/",
-        mainWindowRedirectUri: "/",
       });
     } catch (error) {
       console.error("Logout failed:", error);
