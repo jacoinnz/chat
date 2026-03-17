@@ -13,6 +13,9 @@ export function LoginButton() {
       await instance.loginPopup({
         scopes: graphScopes.search,
         redirectUri: "/redirect.html",
+        popupWindowAttributes: {
+          popupSize: { width: 390, height: 650 },
+        },
       });
     } catch (error) {
       console.error("Login failed:", error);
