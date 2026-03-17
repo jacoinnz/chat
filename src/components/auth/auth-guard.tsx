@@ -16,8 +16,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isPopupWindow, setIsPopupWindow] = useState(true);
 
   useEffect(() => {
-    // window.name is "chatApp" in the popup (set by window.open), empty in main window
-    setIsPopupWindow(window.name === "chatApp");
+    // sessionStorage is per-window — only the popup has this flag
+    setIsPopupWindow(sessionStorage.getItem("isPopupWindow") === "true");
   }, []);
 
   useEffect(() => {
@@ -28,6 +28,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
       !isAuthenticated &&
       inProgress === InteractionStatus.None
     ) {
+      // Mark this window as the popup before redirecting — survives the redirect
+      sessionStorage.setItem("isPopupWindow", "true");
       window.history.replaceState({}, "", "/");
       instance.loginRedirect({
         scopes: graphScopes.search,
