@@ -32,14 +32,23 @@ export function LoginButton() {
 
   if (isLoggedIn) {
     return (
-      <Button variant="outline" onClick={handleLogout} size="sm">
+      <Button
+        variant="outline"
+        onClick={handleLogout}
+        size="sm"
+        className="border-white/40 text-white hover:bg-white/10 hover:text-white"
+      >
         Sign out
       </Button>
     );
   }
 
   return (
-    <Button onClick={handleLogin} size="sm" className="sm:text-sm text-xs">
+    <Button
+      onClick={handleLogin}
+      size="sm"
+      className="sm:text-sm text-xs bg-[#1976d2] hover:bg-[#0d3b66] text-white border-none"
+    >
       Sign in with Microsoft
     </Button>
   );

@@ -16,19 +16,16 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isPopupWindow, setIsPopupWindow] = useState(true);
 
   useEffect(() => {
-    // sessionStorage is per-window — only the popup has this flag
     setIsPopupWindow(sessionStorage.getItem("isPopupWindow") === "true");
   }, []);
 
   useEffect(() => {
-    // Auto-trigger redirect login when opened via popup with ?login=true
     const params = new URLSearchParams(window.location.search);
     if (
       params.get("login") === "true" &&
       !isAuthenticated &&
       inProgress === InteractionStatus.None
     ) {
-      // Mark this window as the popup before redirecting — survives the redirect
       sessionStorage.setItem("isPopupWindow", "true");
       window.history.replaceState({}, "", "/");
       instance.loginRedirect({
@@ -42,19 +39,18 @@ export function AuthGuard({ children }: AuthGuardProps) {
     inProgress === InteractionStatus.HandleRedirect
   ) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className="flex h-screen items-center justify-center bg-[#e8eef4]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1976d2]" />
       </div>
     );
   }
 
-  // Main window (not the popup) — show close message when authenticated
   if (isAuthenticated && !isPopupWindow) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 px-4">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-4 bg-[#e8eef4]">
         <div className="text-center space-y-2">
-          <h1 className="text-xl font-bold">Signed in</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-xl font-bold text-[#0d3b66]">Signed in</h1>
+          <p className="text-sm text-[#667781]">
             You can close this tab. Use the popup window to chat.
           </p>
         </div>
@@ -64,10 +60,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 sm:gap-6 px-3 sm:px-4">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 sm:gap-6 px-3 sm:px-4 bg-[#e8eef4]">
         <div className="text-center space-y-2">
-          <h1 className="text-xl sm:text-2xl font-bold">Microsoft SharePoint Chatbot</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0d3b66]">
+            Microsoft SharePoint Chatbot
+          </h1>
+          <p className="text-sm sm:text-base text-[#667781]">
             Sign in with your Microsoft 365 account to search SharePoint files.
           </p>
         </div>

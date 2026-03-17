@@ -10,17 +10,22 @@ interface MessageBubbleProps {
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
+  const timestamp = message.timestamp.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   if (message.isLoading) {
     return (
       <div className="flex justify-start">
-        <div className="bg-muted rounded-2xl rounded-bl-md px-3 py-2 sm:px-4 sm:py-3 max-w-[95%] sm:max-w-[85%]">
+        <div className="relative bg-white rounded-lg rounded-tl-none px-3 py-2 max-w-[85%] shadow-sm wa-tail-left">
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
-              <span className="h-2 w-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.3s]" />
-              <span className="h-2 w-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.15s]" />
-              <span className="h-2 w-2 bg-muted-foreground/40 rounded-full animate-bounce" />
+              <span className="h-2 w-2 bg-[#667781]/40 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <span className="h-2 w-2 bg-[#667781]/40 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <span className="h-2 w-2 bg-[#667781]/40 rounded-full animate-bounce" />
             </div>
-            <span className="text-xs sm:text-sm text-muted-foreground">
+            <span className="text-xs text-[#667781]">
               Searching SharePoint...
             </span>
           </div>
@@ -32,10 +37,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-3 max-w-[95%] sm:max-w-[85%] ${
+        className={`relative rounded-lg px-3 py-1.5 max-w-[85%] shadow-sm ${
           isUser
-            ? "bg-primary text-primary-foreground rounded-br-md"
-            : "bg-muted rounded-bl-md"
+            ? "bg-[#d4e6f1] text-[#1a2a3a] rounded-tr-none wa-tail-right"
+            : "bg-white text-[#1a2a3a] rounded-tl-none wa-tail-left"
         }`}
       >
         {message.content && (
@@ -45,12 +50,16 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         )}
 
         {message.results && message.results.length > 0 && (
-          <div className="mt-2 sm:mt-3 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {message.results.map((hit) => (
               <FileResultCard key={hit.hitId} hit={hit} />
             ))}
           </div>
         )}
+
+        <span className="block text-[10px] text-[#667781] text-right mt-1 -mb-0.5">
+          {timestamp}
+        </span>
       </div>
     </div>
   );

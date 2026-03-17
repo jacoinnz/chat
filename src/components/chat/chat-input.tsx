@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent, KeyboardEvent } from "react";
+import { Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -28,10 +29,10 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="border-t border-[#d0d8e0] bg-[#f0f2f5]">
       <form
         onSubmit={handleSubmit}
-        className="max-w-3xl mx-auto flex items-center gap-2 p-2 sm:p-4"
+        className="max-w-3xl mx-auto flex items-center gap-2 px-2 py-1.5"
       >
         <Input
           value={input}
@@ -39,16 +40,16 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           onKeyDown={handleKeyDown}
           placeholder="Search SharePoint files..."
           disabled={disabled}
-          className="flex-1 text-sm"
+          className="flex-1 text-sm h-9 rounded-full bg-white border-none px-4 shadow-sm focus-visible:ring-0"
           autoFocus
         />
         <Button
           type="submit"
           disabled={disabled || !input.trim()}
-          size="sm"
-          className="sm:text-sm text-xs"
+          size="icon"
+          className="h-9 w-9 rounded-full bg-[#1976d2] hover:bg-[#0d3b66] text-white shadow-sm shrink-0 border-none"
         >
-          Search
+          <Send className="h-4 w-4" />
         </Button>
       </form>
     </div>

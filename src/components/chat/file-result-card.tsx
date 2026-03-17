@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,7 +31,7 @@ export function FileResultCard({ hit }: FileResultCardProps) {
   };
 
   return (
-    <Card className="p-2 sm:p-3 bg-background hover:bg-accent/50 transition-colors">
+    <div className="p-2 rounded-md bg-[#f5f5f5] border border-[#e0e0e0] hover:bg-[#eeeeee] transition-colors">
       <div className="flex items-start gap-2 sm:gap-3">
         <div className="text-lg sm:text-2xl shrink-0 mt-0.5" aria-hidden="true">
           {fileType.emoji}
@@ -51,7 +50,7 @@ export function FileResultCard({ hit }: FileResultCardProps) {
             </Badge>
           </div>
 
-          <div className="text-[10px] sm:text-xs text-muted-foreground mt-1 space-y-0.5">
+          <div className="text-[10px] sm:text-xs text-[#667781] mt-1 space-y-0.5">
             <div className="truncate">
               Site: {siteName} &middot; {folderPath}
             </div>
@@ -69,7 +68,7 @@ export function FileResultCard({ hit }: FileResultCardProps) {
               size="sm"
               variant="default"
               onClick={handleOpen}
-              className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3"
+              className="h-6 text-[10px] sm:text-xs px-2 sm:px-3 bg-[#1976d2] hover:bg-[#0d3b66] text-white border-none"
             >
               Open
             </Button>
@@ -77,13 +76,13 @@ export function FileResultCard({ hit }: FileResultCardProps) {
               size="sm"
               variant="outline"
               onClick={handleDownload}
-              className="h-6 sm:h-7 text-[10px] sm:text-xs px-2 sm:px-3"
+              className="h-6 text-[10px] sm:text-xs px-2 sm:px-3 border-[#1976d2] text-[#1976d2] hover:bg-[#1976d2]/10"
             >
               Download
             </Button>
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
