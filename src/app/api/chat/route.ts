@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const systemPrompt = buildSystemPrompt(body.currentDocuments);
+    const systemPrompt = buildSystemPrompt(body.currentDocuments, body.keywords);
 
     const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),

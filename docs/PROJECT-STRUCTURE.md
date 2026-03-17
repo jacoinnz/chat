@@ -9,8 +9,8 @@ chat/
 │   └── *.svg                        # Default Next.js icons
 │
 ├── prisma/                          # Database schema and config
-│   ├── schema.prisma                # Tenant, TenantConfig, UsageLog models (PostgreSQL)
-│   └── prisma.config.ts             # Prisma 7 datasource config (Turso URL)uration
+│   ├── schema.prisma                # Tenant, TenantConfig, UsageLog, AuditLog models (SQLite/Turso)
+│   └── prisma.config.ts             # Prisma 7 datasource config (Turso URL)
 │
 ├── src/
 │   ├── middleware.ts                # Edge middleware — JWT extraction for API routes
@@ -34,19 +34,35 @@ chat/
 │   │   │       │   └── route.ts     # PATCH KQL property map (admin)
 │   │   │       ├── search-fields/
 │   │   │       │   └── route.ts     # PATCH search fields (admin)
+│   │   │       ├── keywords/
+│   │   │       │   └── route.ts     # PATCH keyword synonym groups (admin)
+│   │   │       ├── review-policies/
+│   │   │       │   └── route.ts     # PATCH review policies (admin)
+│   │   │       ├── search-behaviour/
+│   │   │       │   └── route.ts     # PATCH search behaviour settings (admin)
 │   │   │       ├── analytics/
-│   │   │       │   └── route.ts     # GET aggregated usage stats (admin)
+│   │   │       │   └── route.ts     # GET usage stats, health, alerts, error monitoring, audit log (admin)
+│   │   │       ├── tenant-info/
+│   │   │       │   └── route.ts     # GET tenant info, admin roles, system status, version (admin)
 │   │   │       └── reset/
-│   │   │           └── route.ts     # POST reset config to defaults (admin)
-│   │   ├── admin/                   # Admin portal pages
+│   │   │           └── route.ts     # POST reset config to defaults (admin, audit-logged)
+│   │   ├── admin/                   # Tenant Control Plane pages
 │   │   │   ├── layout.tsx           # Admin shell — sidebar + header + auth guards
-│   │   │   ├── page.tsx             # Dashboard — stat cards + daily chart + period selector
+│   │   │   ├── page.tsx             # Tenant Overview — health, usage summary, alerts, error monitoring, audit log
 │   │   │   ├── metadata/
 │   │   │   │   └── page.tsx         # Department / Sensitivity / Status editors
 │   │   │   ├── content-types/
 │   │   │   │   └── page.tsx         # Content types editor
-│   │   │   └── kql-config/
-│   │   │       └── page.tsx         # KQL property map + search fields editors
+│   │   │   ├── keywords/
+│   │   │   │   └── page.tsx         # Keywords & synonyms editor
+│   │   │   ├── review-policies/
+│   │   │   │   └── page.tsx         # Review policies editor (staleness thresholds)
+│   │   │   ├── search-behaviour/
+│   │   │   │   └── page.tsx         # Default filters, result limits, ranking weights
+│   │   │   ├── kql-config/
+│   │   │   │   └── page.tsx         # KQL property map + search fields editors
+│   │   │   └── settings/
+│   │   │       └── page.tsx         # Tenant info, access control, system status, version
 │   │   ├── layout.tsx               # Root layout — wraps app in MsalProvider, Barlow font
 │   │   ├── page.tsx                 # Home page — AuthGuard > TenantConfigProvider > ChatPage
 │   │   ├── globals.css              # Tailwind CSS + ocean blue theme + WhatsApp wallpaper
@@ -54,13 +70,16 @@ chat/
 │   │
 │   ├── components/
 │   │   ├── admin/
-│   │   │   ├── admin-auth-guard.tsx # Gates admin portal behind Azure AD admin roles
-│   │   │   ├── admin-sidebar.tsx    # Vertical nav — Dashboard, Metadata, Content Types, KQL Config
+│   │   │   ├── admin-auth-guard.tsx  # Gates admin portal behind Azure AD admin roles
+│   │   │   ├── admin-sidebar.tsx    # Grouped nav — Overview, Taxonomy, Governance sections
 │   │   │   ├── admin-header.tsx     # Top bar with tenant name + user info
 │   │   │   ├── editable-list.tsx    # Reusable add/remove/reorder list component
 │   │   │   ├── stat-card.tsx        # Dashboard stat card (value + label + trend)
 │   │   │   ├── daily-chart.tsx      # CSS bar chart for daily usage breakdown
-│   │   │   └── kql-map-editor.tsx   # Key-value table editor for KQL property map
+│   │   │   ├── health-indicator.tsx # Tenant health status (healthy/warning/degraded)
+│   │   │   ├── kql-map-editor.tsx   # Key-value table editor for KQL property map
+│   │   │   ├── keyword-editor.tsx   # Keyword groups with synonym management
+│   │   │   └── review-policy-editor.tsx # Per-content-type staleness rules editor
 │   │   │
 │   │   ├── auth/
 │   │   │   ├── auth-guard.tsx       # Gates content behind M365 login
@@ -112,7 +131,7 @@ chat/
 │   ├── ARCHITECTURE.md              # System design, retrieval pipeline, safety controls, admin portal
 │   ├── PROJECT-STRUCTURE.md         # This file — directory tree + data flow
 │   ├── AUTHENTICATION.md            # MSAL setup, Azure AD config, token flow, admin auth
-│   └── DEPLOYMENT.md                # Vercel deployment, Postgres setup, env vars, troubleshooting
+│   └── DEPLOYMENT.md                # Vercel deployment, Turso setup, env vars, troubleshooting
 │
 ├── .env.example                     # Environment variable template
 ├── .env.local                       # Local environment variables (not committed)
@@ -154,7 +173,7 @@ layout.tsx
                         └── ChatInput (200-char limit + counter)
 ```
 
-### Admin Portal
+### Tenant Control Plane (Admin Portal)
 
 ```
 layout.tsx
@@ -164,13 +183,20 @@ layout.tsx
             └── AdminAuthGuard (verifies Global Admin / SharePoint Admin role)
                 ├── (denied) → "Access Denied" + link back to chat
                 └── (authorized)
-                    ├── AdminSidebar (Dashboard, Metadata, Content Types, KQL Config, Back to Chat)
+                    ├── AdminSidebar (grouped: Overview, Taxonomy, Governance)
                     ├── AdminHeader (tenant name + user info)
                     └── <page content>
-                        ├── /admin           → Dashboard (StatCard ×4, DailyChart, period selector)
-                        ├── /admin/metadata  → EditableList ×3 (Department, Sensitivity, Status)
-                        ├── /admin/content-types → EditableList ×1 (content types)
-                        └── /admin/kql-config    → KqlMapEditor + EditableList (search fields)
+                        ├── /admin                → Tenant Overview (health, usage summary,
+                        │                           alerts, error monitoring, query insights,
+                        │                           peak hours, DailyChart, audit log)
+                        ├── /admin/settings       → Tenant info, access control (role counts),
+                        │                           system status, version info
+                        ├── /admin/metadata       → EditableList ×3 (Department, Sensitivity, Status)
+                        ├── /admin/content-types  → EditableList ×1 (content types)
+                        ├── /admin/keywords       → KeywordEditor (synonym groups)
+                        ├── /admin/review-policies → ReviewPolicyEditor (per-content-type staleness)
+                        ├── /admin/search-behaviour → Toggles, sliders (safety, limits, weights)
+                        └── /admin/kql-config     → KqlMapEditor + EditableList (search fields)
 ```
 
 ## Key Data Flow
@@ -247,17 +273,17 @@ Admin loads page
 
 | Module | Purpose |
 |---|---|
-| `admin-auth.ts` | JWT decoding, SHA-256 hashing of user OIDs, admin role verification via Graph API |
+| `admin-auth.ts` | JWT decoding, SHA-256 hashing of user OIDs, admin role verification via Graph API, audit logging |
 | `prisma.ts` | Singleton Prisma client with LibSQL adapter for Turso (dev-safe global caching) |
-| `taxonomy-defaults.ts` | Hardcoded default taxonomy values (fallback when no DB config exists) |
-| `graph-search.ts` | Orchestrates the full retrieval pipeline + fetches user's accessible sites |
-| `intent.ts` | Classifies queries, extracts entities, refines search terms (accepts optional tenant config) |
-| `ranking.ts` | Scores and re-orders results by relevance signals |
-| `taxonomy.ts` | TenantTaxonomyConfig interface, MetadataFilters, SEARCH_FIELDS, KQL filter construction (accepts optional tenant config) |
+| `taxonomy-defaults.ts` | Hardcoded defaults for taxonomy, keywords, review policies, search behaviour |
+| `graph-search.ts` | Orchestrates the full retrieval pipeline + fetches user's accessible sites (tenant-aware) |
+| `intent.ts` | Classifies queries, extracts entities, expands synonyms, refines search terms |
+| `ranking.ts` | Scores and re-orders results by configurable relevance weights |
+| `taxonomy.ts` | TenantTaxonomyConfig interface (7 sections), MetadataFilters, KQL filter construction |
 | `content-prep.ts` | Deduplication, summary formatting, page detection |
-| `safety.ts` | Input/content sanitisation, sensitivity checks, freshness assessment |
+| `safety.ts` | Input/content sanitisation, sensitivity checks, policy-aware freshness assessment |
 | `context-builder.ts` | Prepares document context + conversation history for Claude API |
-| `prompts.ts` | Builds Claude system prompt with document injection |
+| `prompts.ts` | Builds Claude system prompt with document injection + keyword grounding |
 | `msal-config.ts` | Azure AD auth configuration — search and admin scope sets |
 | `graph-branding.ts` | Tenant logo fetching from organisational branding API |
 | `file-utils.ts` | File extension mapping, site/folder URL parsing, file size formatting |

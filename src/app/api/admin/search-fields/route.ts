@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminRole } from "@/lib/admin-auth";
+import { verifyAdminRole, logAudit } from "@/lib/admin-auth";
 
 /** PATCH /api/admin/search-fields — update search fields array. */
 export async function PATCH(request: Request) {
@@ -34,6 +34,9 @@ export async function PATCH(request: Request) {
       where: { tenantId },
       data: { searchFields },
     });
+
+    const userId = request.headers.get("x-user-id") || "";
+    logAudit(tenantId, userId, "update", "search-fields", `Updated search fields (${searchFields.length} fields)`);
 
     return NextResponse.json({ searchFields: config.searchFields });
   } catch {

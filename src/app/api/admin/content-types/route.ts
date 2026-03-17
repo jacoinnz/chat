@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminRole } from "@/lib/admin-auth";
+import { verifyAdminRole, logAudit } from "@/lib/admin-auth";
 
 /** PATCH /api/admin/content-types — update content types list. */
 export async function PATCH(request: Request) {
@@ -34,6 +34,9 @@ export async function PATCH(request: Request) {
       where: { tenantId },
       data: { contentTypes },
     });
+
+    const userId = request.headers.get("x-user-id") || "";
+    logAudit(tenantId, userId, "update", "content-types", `Updated content types (${contentTypes.length} items)`);
 
     return NextResponse.json({ contentTypes: config.contentTypes });
   } catch {

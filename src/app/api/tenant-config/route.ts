@@ -5,7 +5,20 @@ import {
   DEFAULT_CONTENT_TYPES,
   DEFAULT_KQL_PROPERTY_MAP,
   DEFAULT_SEARCH_FIELDS,
+  DEFAULT_KEYWORDS,
+  DEFAULT_REVIEW_POLICIES,
+  DEFAULT_SEARCH_BEHAVIOUR,
 } from "@/lib/taxonomy-defaults";
+
+const DEFAULTS = {
+  taxonomy: DEFAULT_TAXONOMY,
+  contentTypes: DEFAULT_CONTENT_TYPES,
+  kqlPropertyMap: DEFAULT_KQL_PROPERTY_MAP,
+  searchFields: DEFAULT_SEARCH_FIELDS,
+  keywords: DEFAULT_KEYWORDS,
+  reviewPolicies: DEFAULT_REVIEW_POLICIES,
+  searchBehaviour: DEFAULT_SEARCH_BEHAVIOUR,
+};
 
 /** GET /api/tenant-config — returns tenant config or defaults.
  *  No auto-provisioning for non-admin users. */
@@ -24,13 +37,7 @@ export async function GET(request: Request) {
     });
 
     if (!config) {
-      // Return defaults when no DB record exists
-      return NextResponse.json({
-        taxonomy: DEFAULT_TAXONOMY,
-        contentTypes: DEFAULT_CONTENT_TYPES,
-        kqlPropertyMap: DEFAULT_KQL_PROPERTY_MAP,
-        searchFields: DEFAULT_SEARCH_FIELDS,
-      });
+      return NextResponse.json(DEFAULTS);
     }
 
     return NextResponse.json({
@@ -38,14 +45,11 @@ export async function GET(request: Request) {
       contentTypes: config.contentTypes,
       kqlPropertyMap: config.kqlPropertyMap,
       searchFields: config.searchFields,
+      keywords: config.keywords ?? DEFAULT_KEYWORDS,
+      reviewPolicies: config.reviewPolicies ?? DEFAULT_REVIEW_POLICIES,
+      searchBehaviour: config.searchBehaviour ?? DEFAULT_SEARCH_BEHAVIOUR,
     });
   } catch {
-    // Return defaults on any DB error
-    return NextResponse.json({
-      taxonomy: DEFAULT_TAXONOMY,
-      contentTypes: DEFAULT_CONTENT_TYPES,
-      kqlPropertyMap: DEFAULT_KQL_PROPERTY_MAP,
-      searchFields: DEFAULT_SEARCH_FIELDS,
-    });
+    return NextResponse.json(DEFAULTS);
   }
 }

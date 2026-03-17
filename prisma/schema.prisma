@@ -24,19 +24,38 @@ model TenantConfig {
   contentTypes    Json     // string[]
   kqlPropertyMap  Json     // Record<string, string>
   searchFields    Json     // string[]
+  keywords        Json     // Array<{ term: string, synonyms: string[] }>
+  reviewPolicies  Json     // Array<{ contentType: string, maxAgeDays: number, warningDays: number }>
+  searchBehaviour Json     // { approvedOnly: boolean, hideRestricted: boolean, maxResults: number, recencyBoostDays: number, recencyWeight: number, matchWeight: number, freshnessWeight: number }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
 
 model UsageLog {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
-  event     String   // "search" | "chat" | "error"
-  userHash  String   // SHA-256 of Azure AD OID
-  errorCode String?
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+  event        String   // "search" | "chat" | "error" | "no_results" | "graph_error" | "auth_error"
+  userHash     String   // SHA-256 of Azure AD OID
+  errorCode    String?
+  resultCount  Int?     // Number of search results returned
+  query        String?  // Sanitised query (no PII — only intent keywords)
+  filtersUsed  String?  // JSON string of filter keys used (not values)
+  intentType   String?  // Detected intent type
+  createdAt    DateTime @default(now())
 
   @@index([tenantId, createdAt])
   @@index([tenantId, event])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userHash  String   // SHA-256 of admin's Azure AD OID
+  action    String   // "update" | "reset"
+  section   String   // "taxonomy" | "content-types" | "keywords" | "review-policies" | "search-behaviour" | "kql-map" | "search-fields" | "config"
+  details   String?  // Human-readable summary of the change
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
 }

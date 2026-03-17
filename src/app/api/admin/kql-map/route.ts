@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminRole } from "@/lib/admin-auth";
+import { verifyAdminRole, logAudit } from "@/lib/admin-auth";
 
 /** PATCH /api/admin/kql-map — update KQL property map. */
 export async function PATCH(request: Request) {
@@ -34,6 +34,10 @@ export async function PATCH(request: Request) {
       where: { tenantId },
       data: { kqlPropertyMap },
     });
+
+    const userId = request.headers.get("x-user-id") || "";
+    const mappings = Object.entries(kqlPropertyMap).map(([k, v]) => `${k}=${v}`).join(", ");
+    logAudit(tenantId, userId, "update", "kql-map", `Updated KQL mapping: ${mappings}`);
 
     return NextResponse.json({ kqlPropertyMap: config.kqlPropertyMap });
   } catch {

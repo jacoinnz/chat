@@ -48,28 +48,31 @@ Each user's access token determines which SharePoint files they can see. Per-ten
 ### Tenant Configuration Flow
 
 ```
-Regular User                      Admin User
+Regular User                      Admin User (Tenant Control Plane)
     │                                 │
     ├── GET /api/tenant-config        ├── GET /api/admin/config
     │   ├── DB record exists?         │   ├── Auto-provisions tenant + config
     │   │   ├── Yes → return config   │   │   (seeds defaults on first access)
-    │   │   └── No  → return defaults │   └── Returns full config
+    │   │   └── No  → return defaults │   └── Returns full config (all 7 sections)
     │   └── DB error → return defaults│
-    │                                 ├── PATCH /api/admin/taxonomy
-    └── Filter bar + intent detection │   └── Updates department/sensitivity/status
-        use tenant-specific values    │
-                                      ├── PATCH /api/admin/kql-map
-                                      │   └── Updates KQL property mappings
+    │                                 ├── PATCH taxonomy / content-types / keywords
+    └── Filter bar + intent detection │   └── Metadata & taxonomy management
+        + keyword synonym expansion   │
+        + review policy staleness     ├── PATCH review-policies / search-behaviour
+        + search behaviour defaults   │   └── Governance controls
+                                      │
+                                      ├── PATCH kql-map / search-fields
+                                      │   └── SharePoint property mapping
                                       │
                                       └── GET /api/admin/analytics
-                                          └── Aggregated usage stats
+                                          └── Monitoring + tenant health indicators
 ```
 
 ### Data Model (Prisma)
 
 - **Tenant** — Azure AD tenant GUID, name, timestamps
-- **TenantConfig** — 1:1 with Tenant. JSON columns: `taxonomy`, `contentTypes`, `kqlPropertyMap`, `searchFields`
-- **UsageLog** — Event type (search/chat/error), SHA-256 hashed user ID, timestamp. Indexed by `(tenantId, timestamp)` and `(tenantId, event)`.
+- **TenantConfig** — 1:1 with Tenant. JSON columns: `taxonomy`, `contentTypes`, `kqlPropertyMap`, `searchFields`, `keywords`, `reviewPolicies`, `searchBehaviour`
+- **UsageLog** — Event type (search/chat/error/no_results/graph_error/auth_error), SHA-256 hashed user ID, result count, filter keys used, intent type, timestamp. Indexed by `(tenantId, timestamp)` and `(tenantId, event)`.
 
 ## Authentication Flow
 
@@ -369,7 +372,7 @@ Admin Browser                                Server
   │      GET /api/admin/config ──────────────►│
   │      (middleware extracts tenant from JWT)  ├── verifyAdminRole() → Graph API
   │      ◄── tenant config ──────────────────┤  ├── Auto-provision if first visit
-  │                                            │  └── Return config from Postgres
+  │                                            │  └── Return config from Turso
   │                                            │
   ├── 4. Admin edits metadata/KQL/etc.         │
   │      PATCH /api/admin/taxonomy ──────────►│

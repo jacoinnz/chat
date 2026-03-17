@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminRole } from "@/lib/admin-auth";
+import { verifyAdminRole, logAudit } from "@/lib/admin-auth";
 
 /** PATCH /api/admin/taxonomy — update taxonomy arrays (department/sensitivity/status). */
 export async function PATCH(request: Request) {
@@ -46,6 +46,9 @@ export async function PATCH(request: Request) {
       where: { tenantId },
       data: { taxonomy },
     });
+
+    const userId = request.headers.get("x-user-id") || "";
+    logAudit(tenantId, userId, "update", "taxonomy", `Updated departments (${taxonomy.department.length}), sensitivities (${taxonomy.sensitivity.length}), statuses (${taxonomy.status.length})`);
 
     return NextResponse.json({ taxonomy: config.taxonomy });
   } catch {

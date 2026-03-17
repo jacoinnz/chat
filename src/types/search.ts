@@ -90,4 +90,5 @@ export interface ApiConversationMessage {
 export interface ChatApiRequest {
   messages: ApiConversationMessage[];
   currentDocuments: DocumentContext[];
+  keywords?: Array<{ term: string; synonyms: string[] }>;
 }

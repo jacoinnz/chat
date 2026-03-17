@@ -35,3 +35,62 @@ export const DEFAULT_SEARCH_FIELDS = [
   "ReviewDate",
   "Keywords",
 ];
+
+// ── Keywords & Synonyms ────────────────────────────────────────────
+// Each entry maps a canonical term to its synonyms.
+// Used for query expansion in intent detection and AI grounding.
+
+export interface KeywordGroup {
+  term: string;
+  synonyms: string[];
+}
+
+export const DEFAULT_KEYWORDS: KeywordGroup[] = [
+  { term: "HR", synonyms: ["Human Resources", "People & Culture", "People Operations"] },
+  { term: "IT", synonyms: ["Information Technology", "Tech Support", "Helpdesk"] },
+  { term: "Finance", synonyms: ["Accounting", "Accounts", "Treasury"] },
+  { term: "Policy", synonyms: ["Procedure", "Guideline", "Standard"] },
+  { term: "Leave", synonyms: ["Annual Leave", "PTO", "Time Off", "Holiday"] },
+  { term: "Onboarding", synonyms: ["Induction", "New Starter", "New Hire"] },
+];
+
+// ── Review Policies ────────────────────────────────────────────────
+// Define staleness thresholds per content type.
+// maxAgeDays: document flagged as stale after this many days without update.
+// warningDays: warn users this many days before the document becomes stale.
+
+export interface ReviewPolicy {
+  contentType: string;
+  maxAgeDays: number;
+  warningDays: number;
+}
+
+export const DEFAULT_REVIEW_POLICIES: ReviewPolicy[] = [
+  { contentType: "Policy", maxAgeDays: 365, warningDays: 30 },
+  { contentType: "Report", maxAgeDays: 180, warningDays: 14 },
+  { contentType: "Form", maxAgeDays: 365, warningDays: 30 },
+  { contentType: "Document", maxAgeDays: 545, warningDays: 30 },
+];
+
+// ── Search Behaviour ───────────────────────────────────────────────
+// Governs default filter states, result limits, and ranking weights.
+
+export interface SearchBehaviour {
+  approvedOnly: boolean;
+  hideRestricted: boolean;
+  maxResults: number;
+  recencyBoostDays: number;
+  recencyWeight: number;
+  matchWeight: number;
+  freshnessWeight: number;
+}
+
+export const DEFAULT_SEARCH_BEHAVIOUR: SearchBehaviour = {
+  approvedOnly: true,
+  hideRestricted: true,
+  maxResults: 15,
+  recencyBoostDays: 30,
+  recencyWeight: 1,
+  matchWeight: 1,
+  freshnessWeight: 1,
+};

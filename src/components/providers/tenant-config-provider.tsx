@@ -15,6 +15,9 @@ import {
   DEFAULT_CONTENT_TYPES,
   DEFAULT_KQL_PROPERTY_MAP,
   DEFAULT_SEARCH_FIELDS,
+  DEFAULT_KEYWORDS,
+  DEFAULT_REVIEW_POLICIES,
+  DEFAULT_SEARCH_BEHAVIOUR,
 } from "@/lib/taxonomy-defaults";
 
 const DEFAULT_CONFIG: TenantTaxonomyConfig = {
@@ -22,6 +25,9 @@ const DEFAULT_CONFIG: TenantTaxonomyConfig = {
   contentTypes: DEFAULT_CONTENT_TYPES,
   kqlPropertyMap: DEFAULT_KQL_PROPERTY_MAP,
   searchFields: DEFAULT_SEARCH_FIELDS,
+  keywords: DEFAULT_KEYWORDS,
+  reviewPolicies: DEFAULT_REVIEW_POLICIES,
+  searchBehaviour: DEFAULT_SEARCH_BEHAVIOUR,
 };
 
 interface TenantConfigContextValue {

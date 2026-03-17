@@ -43,7 +43,7 @@ The admin portal requires a Turso database. Sign up at [turso.tech](https://turs
 
 ```bash
 npx prisma db push    # Create/sync tables
-npx prisma generate   # Generate Prisma client
+# prisma generate runs automatically via the postinstall script during npm install
 ```
 
 ### 3. Install & Run
@@ -131,43 +131,64 @@ Streams a Claude-generated response.
 
 **Errors:** `400` (missing messages/documents), `500` (generation failure) as JSON.
 
-## Admin Portal
+## Tenant Control Plane (Admin Portal)
 
-The admin portal at `/admin` allows tenant administrators to customise metadata, KQL mappings, and view usage analytics — all per-tenant.
+The admin portal at `/admin` provides a governed configuration surface for each organisation. Tenant administrators can manage metadata, configure search behaviour, define review policies, and monitor operational health — all per-tenant, with strict role-based access control.
 
 ### Access Control
 
-Only users with **Global Administrator** or **SharePoint Administrator** Azure AD directory roles can access the admin portal. Role verification is done via the Microsoft Graph API (`GET /me/memberOf`).
+Only users with **Global Administrator** or **SharePoint Administrator** Azure AD directory roles can access the admin portal. Role verification is done via the Microsoft Graph API (`GET /me/memberOf`). Admins never have access to raw database, system logs, other tenants' data, service credentials, or token information.
 
 ### Features
 
 | Page | Route | Description |
 |---|---|---|
-| Dashboard | `/admin` | Usage analytics — search/chat counts, error rate, active users, daily breakdown chart. Selectable period (7d/30d/90d). |
+| Dashboard | `/admin` | Tenant Overview — health snapshot, usage summary (today/7d/30d), alerts & issues, error monitoring, query insights with percentages, peak hours, daily chart, most used filters, recent admin changes (audit log). Selectable period (7d/30d/90d). |
+| Tenant Settings | `/admin/settings` | Tenant information (name, ID, consent status), access control (admin role counts from Graph API), system status (Graph/Search/AI/DB), version info. |
 | Metadata | `/admin/metadata` | Edit department, sensitivity, and status taxonomy values. Add/remove/reorder items per section. |
 | Content Types | `/admin/content-types` | Manage the list of SharePoint content types shown in the filter bar. |
-| KQL Config | `/admin/kql-config` | Configure KQL property mappings (e.g., `department` → `RefinableString00`) and Graph Search fields. |
+| Keywords | `/admin/keywords` | Define keyword synonym groups (e.g., HR = Human Resources = People & Culture). Improves search relevance and AI grounding. |
+| Review Policies | `/admin/review-policies` | Set staleness thresholds per content type (e.g., Policy docs expire after 365 days with 30-day warning). |
+| Search Behaviour | `/admin/search-behaviour` | Control default safety filters (approved only, hide restricted), result limits (5-50), and ranking weights (recency, match quality, freshness penalty). |
+| KQL Mapping | `/admin/kql-config` | Configure KQL property mappings (e.g., `department` → `RefinableString00`) and Graph Search fields. |
 
 ### How It Works
 
 1. **First admin visit** auto-provisions the tenant in the database with default values
 2. **Regular users** see the tenant's custom config (or defaults if no admin has configured anything)
 3. **Zero-downtime**: Existing chat users are unaffected — static defaults remain as fallbacks
-4. **Usage logging**: Search, chat, and error events are anonymously logged (SHA-256 hashed user IDs)
+4. **Usage logging**: Search, chat, error, no-result, Graph API, and auth events are anonymously logged (SHA-256 hashed user IDs)
+5. **Tenant health**: Dashboard monitors Graph API failures, auth issues, zero-result spikes, and KQL misconfiguration indicators
+6. **Audit trail**: All admin configuration changes are logged with who (hashed admin ID), what (section + details), and when
+7. **Alerts**: Active alerts surface critical issues — high error rates, Graph API failures, auth problems, no-result spikes, missing KQL mappings
+
+### What Admins Control
+
+| Category | Controls | Pipeline Impact |
+|---|---|---|
+| Taxonomy | Departments, sensitivities, statuses, content types | Filter bar dropdowns, intent detection, KQL filtering |
+| Keywords | Synonym groups | Query expansion, AI terminology grounding |
+| Review Policies | Max age + warning days per content type | Staleness warnings, ranking penalties |
+| Search Behaviour | Default toggles, max results, ranking weights | Safety defaults, result count, scoring |
+| KQL Mapping | Property map, search fields | KQL construction, Graph API field selection |
 
 ### API Routes
 
 | Route | Method | Purpose |
 |---|---|---|
 | `/api/tenant-config` | GET | Returns tenant config (DB or defaults) |
-| `/api/usage` | POST | Log anonymised usage event |
+| `/api/usage` | POST | Log anonymised usage event (with result count, filters, intent) |
 | `/api/admin/config` | GET/PUT | Fetch or replace full config (admin only) |
 | `/api/admin/taxonomy` | PATCH | Update taxonomy arrays (admin only) |
 | `/api/admin/content-types` | PATCH | Update content types (admin only) |
+| `/api/admin/keywords` | PATCH | Update keyword synonym groups (admin only) |
+| `/api/admin/review-policies` | PATCH | Update review policies (admin only) |
+| `/api/admin/search-behaviour` | PATCH | Update search behaviour settings (admin only) |
 | `/api/admin/kql-map` | PATCH | Update KQL property map (admin only) |
 | `/api/admin/search-fields` | PATCH | Update search fields (admin only) |
-| `/api/admin/analytics` | GET | Aggregated usage stats (admin only) |
-| `/api/admin/reset` | POST | Reset config to defaults (admin only) |
+| `/api/admin/analytics` | GET | Usage stats, health, alerts, error monitoring, peak hours, audit log (admin only) |
+| `/api/admin/tenant-info` | GET | Tenant info, admin role counts, system status, version (admin only) |
+| `/api/admin/reset` | POST | Reset all config to defaults (admin only) |
 
 ## Project Structure
 
@@ -182,27 +203,36 @@ src/
         config/route.ts          # GET/PUT full tenant config (admin)
         taxonomy/route.ts        # PATCH taxonomy arrays (admin)
         content-types/route.ts   # PATCH content types (admin)
+        keywords/route.ts        # PATCH keyword synonym groups (admin)
+        review-policies/route.ts # PATCH review policies (admin)
+        search-behaviour/route.ts # PATCH search behaviour (admin)
         kql-map/route.ts         # PATCH KQL property map (admin)
         search-fields/route.ts   # PATCH search fields (admin)
-        analytics/route.ts       # GET aggregated usage stats (admin)
+        analytics/route.ts       # GET usage stats + health (admin)
         reset/route.ts           # POST reset config to defaults (admin)
     admin/
       layout.tsx                 # Admin shell — sidebar + auth guard
-      page.tsx                   # Dashboard — stats + daily chart
+      page.tsx                   # Dashboard — health + stats + monitoring
       metadata/page.tsx          # Dept/Sensitivity/Status editors
       content-types/page.tsx     # Content types editor
+      keywords/page.tsx          # Keywords & synonyms editor
+      review-policies/page.tsx   # Review policies editor
+      search-behaviour/page.tsx  # Search behaviour controls
       kql-config/page.tsx        # KQL map + search fields editors
     layout.tsx                   # Root layout with MSAL provider
     page.tsx                     # Entry point (AuthGuard > TenantConfigProvider > ChatPage)
   components/
     admin/
       admin-auth-guard.tsx       # Gates admin portal behind Azure AD admin roles
-      admin-sidebar.tsx          # Vertical nav — Dashboard, Metadata, Content Types, KQL Config
+      admin-sidebar.tsx          # Grouped nav — Overview, Taxonomy, Governance
       admin-header.tsx           # Top bar with tenant name + user info
       editable-list.tsx          # Reusable add/remove/reorder list component
       stat-card.tsx              # Dashboard stat card (value + label + trend)
       daily-chart.tsx            # CSS bar chart for daily usage breakdown
+      health-indicator.tsx       # Tenant health status (healthy/warning/degraded)
       kql-map-editor.tsx         # Key-value table editor for KQL property map
+      keyword-editor.tsx         # Keyword groups with synonym management
+      review-policy-editor.tsx   # Per-content-type staleness rules editor
     auth/
       auth-guard.tsx             # Authentication gate
       login-button.tsx           # Sign in / sign out
@@ -225,14 +255,14 @@ src/
     file-utils.ts                # File type detection, path extraction, size formatting
     graph-branding.ts            # Org branding logo fetch
     graph-search.ts              # Microsoft Graph Search API client + site fetching
-    intent.ts                    # Query intent analysis + entity extraction
+    intent.ts                    # Query intent analysis + synonym expansion + entity extraction
     msal-config.ts               # Azure AD configuration (search + admin scopes)
-    prisma.ts                    # Singleton Prisma client (PG adapter)
-    prompts.ts                   # Claude system prompt builder
-    ranking.ts                   # Custom result re-ranking
-    safety.ts                    # Input sanitization, sensitivity, staleness
-    taxonomy.ts                  # TenantTaxonomyConfig interface, MetadataFilters, KQL filter builder
-    taxonomy-defaults.ts         # Hardcoded default taxonomy values (fallback)
+    prisma.ts                    # Singleton Prisma client (LibSQL adapter for Turso)
+    prompts.ts                   # Claude system prompt builder with keyword grounding
+    ranking.ts                   # Configurable result re-ranking (tenant weights)
+    safety.ts                    # Input sanitization, sensitivity, policy-aware staleness
+    taxonomy.ts                  # TenantTaxonomyConfig interface (7 sections), MetadataFilters, KQL builder
+    taxonomy-defaults.ts         # Defaults: taxonomy, keywords, review policies, search behaviour
     utils.ts                     # Tailwind class merge utility
   types/
     search.ts                    # TypeScript interfaces

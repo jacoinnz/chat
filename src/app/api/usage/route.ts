@@ -19,6 +19,15 @@ function checkRateLimit(userHash: string): boolean {
   return true;
 }
 
+const VALID_EVENTS = new Set([
+  "search",
+  "chat",
+  "error",
+  "no_results",
+  "graph_error",
+  "auth_error",
+]);
+
 /** POST /api/usage — log an anonymised usage event. */
 export async function POST(request: Request) {
   const tenantInfo = await extractTenantInfo(request);
@@ -33,7 +42,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const event = body.event;
-    if (!event || !["search", "chat", "error"].includes(event)) {
+    if (!event || !VALID_EVENTS.has(event)) {
       return NextResponse.json(
         { error: "Invalid event type" },
         { status: 400 }
@@ -47,12 +56,25 @@ export async function POST(request: Request) {
       update: {},
     });
 
+    // Extract only filter keys used (not values — no PII)
+    let filtersUsed: string | null = null;
+    if (body.filtersUsed && typeof body.filtersUsed === "object") {
+      const keys = Object.keys(body.filtersUsed).filter(
+        (k) => body.filtersUsed[k] !== undefined && body.filtersUsed[k] !== null
+      );
+      filtersUsed = keys.length > 0 ? JSON.stringify(keys) : null;
+    }
+
     await prisma.usageLog.create({
       data: {
         tenantId: tenantInfo.tenantId,
         event,
         userHash: tenantInfo.userHash,
         errorCode: body.errorCode || null,
+        resultCount: typeof body.resultCount === "number" ? body.resultCount : null,
+        query: null, // Never store raw queries — privacy by design
+        filtersUsed,
+        intentType: typeof body.intentType === "string" ? body.intentType : null,
       },
     });
 

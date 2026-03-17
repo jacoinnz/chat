@@ -7,14 +7,37 @@ import {
   Tags,
   FileText,
   Search,
+  BookOpen,
+  ClipboardCheck,
+  SlidersHorizontal,
   MessageSquare,
+  Settings,
 } from "lucide-react";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/metadata", label: "Metadata", icon: Tags },
-  { href: "/admin/content-types", label: "Content Types", icon: FileText },
-  { href: "/admin/kql-config", label: "KQL Config", icon: Search },
+const NAV_SECTIONS = [
+  {
+    label: "Overview",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/settings", label: "Tenant Settings", icon: Settings },
+    ],
+  },
+  {
+    label: "Taxonomy",
+    items: [
+      { href: "/admin/metadata", label: "Metadata", icon: Tags },
+      { href: "/admin/content-types", label: "Content Types", icon: FileText },
+      { href: "/admin/keywords", label: "Keywords", icon: BookOpen },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { href: "/admin/review-policies", label: "Review Policies", icon: ClipboardCheck },
+      { href: "/admin/search-behaviour", label: "Search Behaviour", icon: SlidersHorizontal },
+      { href: "/admin/kql-config", label: "KQL Mapping", icon: Search },
+    ],
+  },
 ];
 
 export function AdminSidebar() {
@@ -23,27 +46,34 @@ export function AdminSidebar() {
   return (
     <aside className="w-56 bg-[#0d3b66] text-white flex flex-col shrink-0">
       <div className="px-4 py-4 border-b border-[#0a2d4f]">
-        <h1 className="text-sm font-semibold tracking-wide">Admin Portal</h1>
+        <h1 className="text-sm font-semibold tracking-wide">Tenant Control Plane</h1>
       </div>
 
-      <nav className="flex-1 py-2">
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                isActive
-                  ? "bg-[#1976d2] text-white"
-                  : "text-white/70 hover:text-white hover:bg-[#0a2d4f]"
-              }`}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 py-2 overflow-y-auto">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label} className="mb-1">
+            <div className="px-4 py-1.5 text-[10px] uppercase tracking-wider text-white/40 font-medium">
+              {section.label}
+            </div>
+            {section.items.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+                    isActive
+                      ? "bg-[#1976d2] text-white"
+                      : "text-white/70 hover:text-white hover:bg-[#0a2d4f]"
+                  }`}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="px-4 py-3 border-t border-[#0a2d4f]">

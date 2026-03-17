@@ -1,4 +1,5 @@
 import type { SearchHit } from "@/types/search";
+import type { ReviewPolicy } from "./taxonomy-defaults";
 
 // ── Input Sanitization ──
 
@@ -75,11 +76,29 @@ function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - then) / (1000 * 60 * 60 * 24));
 }
 
-/** Assess the freshness/staleness of a search result */
-export function assessFreshness(hit: SearchHit): FreshnessInfo {
+/** Find the applicable review policy for a content type.
+ *  Falls back to a generic "Document" policy if no specific match exists. */
+function findPolicy(contentType: string | undefined, policies: ReviewPolicy[]): ReviewPolicy | undefined {
+  if (!contentType || policies.length === 0) return undefined;
+
+  // Exact match
+  const exact = policies.find(
+    (p) => p.contentType.toLowerCase() === contentType.toLowerCase()
+  );
+  if (exact) return exact;
+
+  // Fallback to "Document" policy (most generic)
+  return policies.find((p) => p.contentType.toLowerCase() === "document");
+}
+
+/** Assess the freshness/staleness of a search result.
+ *  When reviewPolicies are provided, uses content-type-specific thresholds
+ *  instead of the hardcoded 365-day default. */
+export function assessFreshness(hit: SearchHit, reviewPolicies?: ReviewPolicy[]): FreshnessInfo {
   const fields = hit.resource.listItem?.fields;
   const status = fields?.Status;
   const reviewDate = fields?.ReviewDate;
+  const contentType = fields?.ContentType;
   const modifiedDays = daysSince(hit.resource.lastModifiedDateTime);
 
   // Archived documents
@@ -107,8 +126,25 @@ export function assessFreshness(hit: SearchHit): FreshnessInfo {
     }
   }
 
-  // Old document (>12 months without update)
-  if (modifiedDays > 365) {
+  // Policy-based staleness (per content type)
+  const policy = reviewPolicies ? findPolicy(contentType, reviewPolicies) : undefined;
+  const maxAgeDays = policy?.maxAgeDays ?? 365;
+  const warningDays = policy?.warningDays ?? 30;
+
+  // Check if approaching staleness (warning zone)
+  if (modifiedDays > maxAgeDays - warningDays && modifiedDays <= maxAgeDays) {
+    const daysLeft = maxAgeDays - modifiedDays;
+    return {
+      isStale: false,
+      isArchived: false,
+      daysSinceModified: modifiedDays,
+      reviewDate,
+      warning: `Due for review in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.`,
+    };
+  }
+
+  // Stale: exceeded max age
+  if (modifiedDays > maxAgeDays) {
     const months = Math.floor(modifiedDays / 30);
     return {
       isStale: true,

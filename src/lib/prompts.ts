@@ -1,4 +1,5 @@
 import type { DocumentContext } from "@/types/search";
+import type { KeywordGroup } from "./taxonomy-defaults";
 
 function formatDocumentSection(docs: DocumentContext[]): string {
   if (docs.length === 0) return "No documents available.";
@@ -24,7 +25,24 @@ function formatDocumentSection(docs: DocumentContext[]): string {
     .join("\n\n");
 }
 
-export function buildSystemPrompt(documents: DocumentContext[]): string {
+function formatKeywordContext(keywords: KeywordGroup[]): string {
+  if (keywords.length === 0) return "";
+
+  const lines = keywords.map(
+    (g) => `- "${g.term}" also means: ${g.synonyms.join(", ")}`
+  );
+
+  return `\nORGANISATION TERMINOLOGY:
+The following terms are used interchangeably in this organisation:
+${lines.join("\n")}
+When a user asks about one of these terms, treat all synonyms as equivalent.\n`;
+}
+
+export function buildSystemPrompt(documents: DocumentContext[], keywords?: KeywordGroup[]): string {
+  const keywordSection = keywords && keywords.length > 0
+    ? formatKeywordContext(keywords)
+    : "";
+
   return `You are a helpful SharePoint assistant that synthesises answers from search results.
 
 RULES:
@@ -39,7 +57,7 @@ RULES:
 - For follow-up questions, use the conversation history for context.
 - Do NOT repeat document excerpts verbatim — synthesise and summarise.
 - Do NOT mention that you are an AI or that you are reading documents. Just answer naturally.
-
+${keywordSection}
 SOURCE DOCUMENTS:
 ${formatDocumentSection(documents)}`;
 }

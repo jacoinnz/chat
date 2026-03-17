@@ -65,6 +65,29 @@ export async function extractTenantInfo(
 
 /** Verify the caller has Global Admin or SharePoint Admin role.
  *  Calls Graph API /me/memberOf with the provided access token. */
+/** Fire-and-forget audit log entry. Non-blocking — failures silently ignored. */
+export function logAudit(
+  tenantId: string,
+  userOid: string,
+  action: "update" | "reset",
+  section: string,
+  details?: string
+): void {
+  // Lazy import to avoid circular dependency at module level
+  import("@/lib/prisma").then(async ({ prisma }) => {
+    try {
+      const userHash = await sha256(userOid);
+      await prisma.auditLog.create({
+        data: { id: crypto.randomUUID(), tenantId, userHash, action, section, details },
+      });
+    } catch {
+      // Best-effort — audit logging should never break the request
+    }
+  });
+}
+
+/** Verify the caller has Global Admin or SharePoint Admin role.
+ *  Calls Graph API /me/memberOf with the provided access token. */
 export async function verifyAdminRole(
   accessToken: string
 ): Promise<boolean> {

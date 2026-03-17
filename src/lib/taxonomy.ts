@@ -25,6 +25,9 @@ import {
   DEFAULT_CONTENT_TYPES,
   DEFAULT_KQL_PROPERTY_MAP,
   DEFAULT_SEARCH_FIELDS,
+  type KeywordGroup,
+  type ReviewPolicy,
+  type SearchBehaviour,
 } from "./taxonomy-defaults";
 
 // ── Tenant Config Interface ──────────────────────────────────────────
@@ -41,6 +44,9 @@ export interface TenantTaxonomyConfig {
   contentTypes: string[];
   kqlPropertyMap: Record<string, string>;
   searchFields: string[];
+  keywords: KeywordGroup[];
+  reviewPolicies: ReviewPolicy[];
+  searchBehaviour: SearchBehaviour;
 }
 
 // ── Tier 1: Built-In Properties ──────────────────────────────────────

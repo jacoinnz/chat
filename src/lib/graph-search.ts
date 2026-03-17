@@ -90,6 +90,9 @@ export async function searchSharePoint(
 }> {
   const accessToken = await getAccessToken(msalInstance);
 
+  // Use tenant-specific max results if configured
+  const effectivePageSize = config?.searchBehaviour?.maxResults ?? pageSize;
+
   // Step 2: Identify intent (using tenant config if available)
   const intent = analyzeIntent(query, config);
 
@@ -118,7 +121,7 @@ export async function searchSharePoint(
         },
         fields: searchFields,
         from: 0,
-        size: pageSize,
+        size: effectivePageSize,
       },
     ],
   };
@@ -146,13 +149,15 @@ export async function searchSharePoint(
 
   // Step 4: Permissions — handled by Graph API token scoping
 
-  // Step 5: Deduplicate + Rank
+  // Step 5: Deduplicate + Rank (with tenant-specific weights and policies)
   const deduplicated = deduplicateHits(container.hits);
   const ranked = rankResults(deduplicated, {
     query: intent.refinedQuery,
     intent: intent.intent,
     filters: mergedFilters,
     sortByRecency: intent.sortByRecency,
+    searchBehaviour: config?.searchBehaviour,
+    reviewPolicies: config?.reviewPolicies,
   });
 
   return {

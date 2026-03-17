@@ -1,6 +1,7 @@
 import type { QueryIntent } from "./intent";
 import type { MetadataFilters } from "./taxonomy";
 import type { SearchHit } from "@/types/search";
+import type { SearchBehaviour, ReviewPolicy } from "./taxonomy-defaults";
 import { isSharePointPage } from "./content-prep";
 import { assessFreshness } from "./safety";
 
@@ -9,6 +10,8 @@ export interface RankingContext {
   intent: QueryIntent;
   filters: MetadataFilters;
   sortByRecency: boolean;
+  searchBehaviour?: SearchBehaviour;
+  reviewPolicies?: ReviewPolicy[];
 }
 
 /** Calculate days between two dates */
@@ -22,30 +25,35 @@ function daysSince(dateStr: string): number {
 function computeScore(hit: SearchHit, ctx: RankingContext): number {
   let score = 1000 - hit.rank; // Invert Graph rank (lower rank = more relevant)
 
+  const recencyWeight = ctx.searchBehaviour?.recencyWeight ?? 1;
+  const matchWeight = ctx.searchBehaviour?.matchWeight ?? 1;
+  const freshnessWeight = ctx.searchBehaviour?.freshnessWeight ?? 1;
+  const recencyBoostDays = ctx.searchBehaviour?.recencyBoostDays ?? 30;
+
   const recencyMultiplier = ctx.sortByRecency ? 3 : 1;
 
-  // Recency bonus
+  // Recency bonus (weighted)
   if (hit.resource.lastModifiedDateTime) {
     const days = daysSince(hit.resource.lastModifiedDateTime);
-    if (days <= 30) {
-      score += 50 * recencyMultiplier;
-    } else if (days <= 90) {
-      score += 25 * recencyMultiplier;
+    if (days <= recencyBoostDays) {
+      score += 50 * recencyMultiplier * recencyWeight;
+    } else if (days <= recencyBoostDays * 3) {
+      score += 25 * recencyMultiplier * recencyWeight;
     }
   }
 
-  // Summary contains query string
+  // Summary contains query string (weighted)
   const queryLower = ctx.query.toLowerCase();
   if (hit.summary?.toLowerCase().includes(queryLower)) {
-    score += 30;
+    score += 30 * matchWeight;
   }
 
-  // Title contains a query word
+  // Title contains a query word (weighted)
   const nameLower = hit.resource.name?.toLowerCase() || "";
   const queryWords = queryLower.split(/\s+/).filter((w) => w.length > 2);
   for (const word of queryWords) {
     if (nameLower.includes(word)) {
-      score += 40;
+      score += 40 * matchWeight;
       break; // Only count once
     }
   }
@@ -76,18 +84,18 @@ function computeScore(hit: SearchHit, ctx: RankingContext): number {
     score += 10;
   }
 
-  // Safety penalties — push stale/archived content down
-  const freshness = assessFreshness(hit);
+  // Safety penalties — push stale/archived content down (weighted)
+  const freshness = assessFreshness(hit, ctx.reviewPolicies);
   if (freshness.isArchived) {
-    score -= 100;
+    score -= 100 * freshnessWeight;
   } else if (freshness.isStale) {
-    score -= 50;
+    score -= 50 * freshnessWeight;
   }
   // Overdue review date penalty (additional to stale)
   if (freshness.reviewDate) {
     const reviewTime = new Date(freshness.reviewDate).getTime();
     if (!isNaN(reviewTime) && reviewTime < Date.now()) {
-      score -= 30;
+      score -= 30 * freshnessWeight;
     }
   }
 

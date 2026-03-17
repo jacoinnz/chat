@@ -48,6 +48,8 @@ Automatic deployment on push to `main`:
 git push origin main → GitHub → Vercel auto-builds → live at chat-iota-cyan.vercel.app
 ```
 
+> The `postinstall` script in `package.json` runs `prisma generate` automatically during `npm install` on Vercel, so the Prisma client is always generated before the build.
+
 ### Manual Deploy (CLI)
 
 ```bash
@@ -67,8 +69,8 @@ cp .env.example .env.local
 # Edit .env.local with your Azure AD client ID, Anthropic API key, and Turso credentials
 
 # 3. Push database schema (requires Turso URL in .env.local)
+# Note: prisma generate runs automatically via the postinstall script during npm install
 npx prisma db push
-npx prisma generate
 
 # 4. Run dev server
 npm run dev

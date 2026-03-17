@@ -1,4 +1,5 @@
 import { TAXONOMY, CONTENT_TYPES, type MetadataFilters, type TenantTaxonomyConfig } from "./taxonomy";
+import type { KeywordGroup } from "./taxonomy-defaults";
 
 export type QueryIntent =
   | "keyword"
@@ -49,6 +50,50 @@ function stripQuestionWords(query: string): string {
     .replace(/^(the|a|an|our|my|their|is|are|was|were)\s+/gi, "")
     .replace(/\?+$/, "")
     .trim();
+}
+
+/** Expand query using keyword synonyms.
+ *  If the query contains a synonym, append the canonical term (and vice versa)
+ *  so the Graph Search API can match on more variations. */
+function expandWithSynonyms(query: string, keywords: KeywordGroup[]): string {
+  const lower = query.toLowerCase();
+  const expansions: string[] = [];
+
+  for (const group of keywords) {
+    const termLower = group.term.toLowerCase();
+    let matched = false;
+
+    // Check if query already contains the canonical term
+    if (lower.includes(termLower)) {
+      matched = true;
+    }
+
+    // Check if query contains any synonym
+    if (!matched) {
+      for (const syn of group.synonyms) {
+        if (lower.includes(syn.toLowerCase())) {
+          // Query has a synonym — add the canonical term
+          expansions.push(group.term);
+          matched = true;
+          break;
+        }
+      }
+    }
+
+    // If the canonical term was found, add first synonym for broader matching
+    if (matched && group.synonyms.length > 0 && !expansions.includes(group.term)) {
+      // Only expand if the term matches but synonyms don't appear
+      const hasSynonymInQuery = group.synonyms.some((s) =>
+        lower.includes(s.toLowerCase())
+      );
+      if (!hasSynonymInQuery) {
+        expansions.push(group.synonyms[0]);
+      }
+    }
+  }
+
+  if (expansions.length === 0) return query;
+  return `${query} ${expansions.join(" ")}`;
 }
 
 /** Match query tokens against taxonomy values and return detected filters */
@@ -114,7 +159,8 @@ function detectAuthor(query: string): string | undefined {
 }
 
 /** Analyze user query to determine intent, extract entities, and refine the query.
- *  When config is provided, uses tenant-specific taxonomy values for filter detection. */
+ *  When config is provided, uses tenant-specific taxonomy values for filter detection
+ *  and keyword synonyms for query expansion. */
 export function analyzeIntent(query: string, config?: TenantTaxonomyConfig): IntentResult {
   const trimmed = query.trim();
   const detectedFilters = detectTaxonomyFilters(trimmed, config);
@@ -148,6 +194,11 @@ export function analyzeIntent(query: string, config?: TenantTaxonomyConfig): Int
       refinedQuery = refinedQuery.replace(new RegExp(`\\b${keyword}\\b`, "gi"), "").trim();
     }
     refinedQuery = refinedQuery.replace(/\s{2,}/g, " ").trim();
+  }
+
+  // Expand query with keyword synonyms for broader matching
+  if (config?.keywords && config.keywords.length > 0) {
+    refinedQuery = expandWithSynonyms(refinedQuery, config.keywords);
   }
 
   // Fallback if refinement emptied the query

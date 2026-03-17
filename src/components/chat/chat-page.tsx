@@ -16,8 +16,8 @@ import type { ChatMessage, ChatApiRequest, SharePointSite } from "@/types/search
 /** Fire-and-forget usage log. Non-blocking — failures are silently ignored. */
 async function logUsage(
   instance: ReturnType<typeof useMsal>["instance"],
-  event: "search" | "chat" | "error",
-  errorCode?: string
+  event: "search" | "chat" | "error" | "no_results" | "graph_error" | "auth_error",
+  extra?: { errorCode?: string; resultCount?: number; filtersUsed?: MetadataFilters; intentType?: string }
 ) {
   try {
     const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
@@ -32,7 +32,13 @@ async function logUsage(
         "Content-Type": "application/json",
         Authorization: `Bearer ${tokenResponse.accessToken}`,
       },
-      body: JSON.stringify({ event, errorCode }),
+      body: JSON.stringify({
+        event,
+        errorCode: extra?.errorCode,
+        resultCount: extra?.resultCount,
+        filtersUsed: extra?.filtersUsed,
+        intentType: extra?.intentType,
+      }),
     }).catch(() => {});
   } catch {
     // Silently ignore — usage logging is best-effort
@@ -52,10 +58,26 @@ export function ChatPage() {
     },
   ]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Use tenant-configured defaults for safety toggles
   const [filters, setFilters] = useState<MetadataFilters>({
     approvedOnly: true,
     hideRestricted: true,
   });
+
+  // Sync filter defaults when config loads
+  const configApplied = useRef(false);
+  useEffect(() => {
+    if (config?.searchBehaviour && !configApplied.current) {
+      configApplied.current = true;
+      setFilters((prev) => ({
+        ...prev,
+        approvedOnly: config.searchBehaviour.approvedOnly,
+        hideRestricted: config.searchBehaviour.hideRestricted,
+      }));
+    }
+  }, [config]);
+
   const [sites, setSites] = useState<SharePointSite[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -93,9 +115,14 @@ export function ChatPage() {
       try {
         // Phase 1: Search SharePoint (with tenant config)
         const { hits, total, intent } = await searchSharePoint(instance, query, filters, 15, config);
-        logUsage(instance, "search");
+        logUsage(instance, "search", {
+          resultCount: hits.length,
+          filtersUsed: filters,
+          intentType: intent.intent,
+        });
 
         if (hits.length === 0) {
+          logUsage(instance, "no_results", { intentType: intent.intent });
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -141,6 +168,7 @@ export function ChatPage() {
             { role: "user", content: query },
           ],
           currentDocuments: documentContext,
+          keywords: config?.keywords,
         };
 
         const controller = new AbortController();
@@ -210,7 +238,12 @@ export function ChatPage() {
             ? error.message
             : "An unexpected error occurred.";
 
-        logUsage(instance, "error", errorMsg);
+        // Classify errors for monitoring
+        const isGraphError = errorMsg.includes("Graph search failed");
+        const isAuthError = errorMsg.includes("No active account") || errorMsg.includes("acquireToken");
+        const eventType = isGraphError ? "graph_error" : isAuthError ? "auth_error" : "error";
+
+        logUsage(instance, eventType, { errorCode: errorMsg });
 
         setMessages((prev) =>
           prev.map((m) =>
