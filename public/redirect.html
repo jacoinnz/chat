@@ -1,5 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head><title>Sign in</title></head>
-<body></body>
+<body>
+    <script src="/msal-redirect-bridge.min.js"></script>
+    <script>
+        msalRedirectBridge.broadcastResponseToMainFrame().catch(console.error);
+    </script>
+</body>
 </html>
