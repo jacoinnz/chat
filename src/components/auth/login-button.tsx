@@ -36,7 +36,7 @@ export function LoginButton() {
         variant="outline"
         onClick={handleLogout}
         size="sm"
-        className="bg-white/10 border-white/40 text-white hover:bg-white/10 hover:text-white"
+        className="bg-white/10 border-white text-white hover:bg-white/10 hover:text-white"
       >
         Sign out
       </Button>
