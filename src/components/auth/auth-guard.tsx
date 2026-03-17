@@ -16,8 +16,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [isPopupWindow, setIsPopupWindow] = useState(true);
 
   useEffect(() => {
-    // Detect if this is the popup window (has opener) or the main window
-    setIsPopupWindow(!!window.opener);
+    // window.name is "chatApp" in the popup (set by window.open), empty in main window
+    setIsPopupWindow(window.name === "chatApp");
   }, []);
 
   useEffect(() => {
