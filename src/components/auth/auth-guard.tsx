@@ -1,9 +1,10 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { LoginButton } from "./login-button";
+import { graphScopes } from "@/lib/msal-config";
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -11,7 +12,23 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const isAuthenticated = useIsAuthenticated();
-  const { inProgress } = useMsal();
+  const { instance, inProgress } = useMsal();
+
+  useEffect(() => {
+    // Auto-trigger redirect login when opened via popup with ?login=true
+    const params = new URLSearchParams(window.location.search);
+    if (
+      params.get("login") === "true" &&
+      !isAuthenticated &&
+      inProgress === InteractionStatus.None
+    ) {
+      // Clean up the URL param before redirecting
+      window.history.replaceState({}, "", "/");
+      instance.loginRedirect({
+        scopes: graphScopes.search,
+      });
+    }
+  }, [isAuthenticated, inProgress, instance]);
 
   if (
     inProgress === InteractionStatus.Startup ||

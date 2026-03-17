@@ -1,37 +1,29 @@
 "use client";
 
 import { useMsal } from "@azure/msal-react";
-import { graphScopes } from "@/lib/msal-config";
 import { Button } from "@/components/ui/button";
 
 export function LoginButton() {
   const { instance, accounts } = useMsal();
   const isLoggedIn = accounts.length > 0;
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     const width = 390;
     const height = 650;
-    const left = Math.max(0, (window.innerWidth - width) / 2 + (window.screenLeft ?? window.screenX));
-    const top = Math.max(0, (window.innerHeight - height) / 2 + (window.screenTop ?? window.screenY));
+    const left = Math.round((window.screen.width - width) / 2);
+    const top = Math.round((window.screen.height - height) / 2);
 
-    try {
-      await instance.loginPopup({
-        scopes: graphScopes.search,
-        redirectUri: "/redirect.html",
-        popupWindowAttributes: {
-          popupSize: { width, height },
-          popupPosition: { top, left },
-        },
-      });
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
+    window.open(
+      "/?login=true",
+      "chatApp",
+      `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
+    );
   };
 
   const handleLogout = async () => {
     try {
-      await instance.logoutPopup({
-        mainWindowRedirectUri: "/",
+      await instance.logoutRedirect({
+        postLogoutRedirectUri: "/",
       });
     } catch (error) {
       console.error("Logout failed:", error);
