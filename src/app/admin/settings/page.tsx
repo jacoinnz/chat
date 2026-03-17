@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useMsal } from "@azure/msal-react";
-import { graphScopes } from "@/lib/msal-config";
+import { useAdminFetch } from "@/hooks/use-admin-api";
 import {
   Loader2,
   Building2,
@@ -68,39 +66,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 export default function TenantSettingsPage() {
-  const { instance } = useMsal();
-  const [info, setInfo] = useState<TenantInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchInfo = useCallback(async () => {
-    try {
-      const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
-      if (!account) return;
-
-      const tokenResponse = await instance.acquireTokenSilent({
-        scopes: graphScopes.admin,
-        account,
-      });
-
-      const response = await fetch("/api/admin/tenant-info", {
-        headers: {
-          Authorization: `Bearer ${tokenResponse.accessToken}`,
-        },
-      });
-
-      if (response.ok) {
-        setInfo(await response.json());
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, [instance]);
-
-  useEffect(() => {
-    fetchInfo();
-  }, [fetchInfo]);
+  const { data: info, loading } = useAdminFetch<TenantInfo>("/api/admin/tenant-info");
 
   if (loading) {
     return (

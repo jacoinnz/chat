@@ -59,3 +59,21 @@ model AuditLog {
 
   @@index([tenantId, createdAt])
 }
+
+model ConfigVersion {
+  id          String    @id @default(cuid())
+  tenantId    String
+  version     Int
+  status      String    @default("published") // "published" | "draft"
+  snapshot    Json      // full config: all 7 sections
+  section     String    // what triggered it: "taxonomy" | "content-types" | ... | "rollback" | "reset"
+  authorHash  String
+  authorName  String    @default("")
+  comment     String?
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  @@unique([tenantId, version])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+}

@@ -25,7 +25,16 @@ chat/
 │   │   │   │   └── route.ts         # POST anonymised usage events (rate-limited)
 │   │   │   └── admin/
 │   │   │       ├── config/
-│   │   │       │   └── route.ts     # GET/PUT full tenant config (admin, auto-provisions)
+│   │   │       │   ├── route.ts     # GET/PUT full tenant config (admin, auto-provisions)
+│   │   │       │   ├── versions/
+│   │   │       │   │   ├── route.ts # GET paginated version history
+│   │   │       │   │   └── [id]/
+│   │   │       │   │       └── rollback/
+│   │   │       │   │           └── route.ts # POST rollback to version
+│   │   │       │   ├── draft/
+│   │   │       │   │   └── route.ts # GET/POST/DELETE draft config
+│   │   │       │   └── publish/
+│   │   │       │       └── route.ts # POST publish draft to live
 │   │   │       ├── taxonomy/
 │   │   │       │   └── route.ts     # PATCH taxonomy arrays (admin)
 │   │   │       ├── content-types/
@@ -61,8 +70,10 @@ chat/
 │   │   │   │   └── page.tsx         # Default filters, result limits, ranking weights
 │   │   │   ├── kql-config/
 │   │   │   │   └── page.tsx         # KQL property map + search fields editors
-│   │   │   └── settings/
-│   │   │       └── page.tsx         # Tenant info, access control, system status, version
+│   │   │   ├── settings/
+│   │   │   │   └── page.tsx         # Tenant info, access control, system status, version
+│   │   │   └── version-history/
+│   │   │       └── page.tsx         # Config version history with rollback
 │   │   ├── layout.tsx               # Root layout — wraps app in MsalProvider, Barlow font
 │   │   ├── page.tsx                 # Home page — AuthGuard > TenantConfigProvider > ChatPage
 │   │   ├── globals.css              # Tailwind CSS + ocean blue theme + WhatsApp wallpaper
@@ -73,6 +84,9 @@ chat/
 │   │   │   ├── admin-auth-guard.tsx  # Gates admin portal behind Azure AD admin roles
 │   │   │   ├── admin-sidebar.tsx    # Grouped nav — Overview, Taxonomy, Governance sections
 │   │   │   ├── admin-header.tsx     # Top bar with tenant name + user info
+│   │   │   ├── save-bar.tsx         # SaveBar (reset/save/draft buttons) + MessageBanner (success/error feedback)
+│   │   │   ├── draft-banner.tsx    # Amber banner for unpublished drafts (publish/discard actions)
+│   │   │   ├── section-card.tsx     # SectionCard — white card wrapper with title + optional description
 │   │   │   ├── editable-list.tsx    # Reusable add/remove/reorder list component
 │   │   │   ├── stat-card.tsx        # Dashboard stat card (value + label + trend)
 │   │   │   ├── daily-chart.tsx      # CSS bar chart for daily usage breakdown
@@ -106,6 +120,9 @@ chat/
 │   │       ├── input.tsx
 │   │       ├── scroll-area.tsx
 │   │       └── separator.tsx
+│   │
+│   ├── hooks/
+│   │   └── use-admin-api.ts        # Admin hooks: useAdminToken, useAdminFetch, useAdminSave, useAdminConfig
 │   │
 │   ├── lib/
 │   │   ├── admin-auth.ts           # JWT extraction, SHA-256 hashing, admin role verification via Graph API
@@ -191,6 +208,7 @@ layout.tsx
                         │                           peak hours, DailyChart, audit log)
                         ├── /admin/settings       → Tenant info, access control (role counts),
                         │                           system status, version info
+                        ├── /admin/version-history → Config version list with rollback
                         ├── /admin/metadata       → EditableList ×3 (Department, Sensitivity, Status)
                         ├── /admin/content-types  → EditableList ×1 (content types)
                         ├── /admin/keywords       → KeywordEditor (synonym groups)
@@ -254,17 +272,30 @@ On mount: AdminAuthGuard → acquireToken(Directory.Read.All) → GET /me/member
 
 Admin loads page
     │
-    ├── GET /api/admin/config (auto-provisions tenant on first visit)
-    │   ├── Middleware: decode JWT → x-tenant-id header
-    │   ├── Route: verifyAdminRole() → Graph API
-    │   └── Prisma: upsert Tenant + TenantConfig (seed defaults)
+    ├── useAdminConfig() or useAdminFetch() hook
+    │   ├── useAdminToken() → acquireTokenSilent(Directory.Read.All)
+    │   └── GET /api/admin/config (auto-provisions tenant on first visit)
+    │       ├── Middleware: decode JWT → x-tenant-id header
+    │       ├── Route: verifyAdminRole() → Graph API
+    │       └── Prisma: upsert Tenant + TenantConfig (seed defaults)
     │
     ├── Admin edits values in UI
     │
-    ├── Save → PATCH /api/admin/{taxonomy|content-types|kql-map|search-fields}
-    │   ├── Middleware: decode JWT → x-tenant-id header
-    │   ├── Route: verifyAdminRole() → Graph API
-    │   └── Prisma: update TenantConfig
+    ├── Save → useAdminSave() → PATCH /api/admin/{taxonomy|content-types|...}
+    │   ├── Middleware: decode JWT → x-tenant-id, x-user-id, x-user-name headers
+    │   ├── Route: checkAdmin() → Graph API role verification
+    │   ├── Prisma: update TenantConfig
+    │   ├── logAudit() → AuditLog entry (fire-and-forget)
+    │   └── createConfigVersion() → ConfigVersion snapshot (fire-and-forget)
+    │
+    ├── Save as Draft → POST /api/admin/config/draft
+    │   └── ConfigVersion with status="draft" (TenantConfig unchanged)
+    │
+    ├── Publish Draft → POST /api/admin/config/publish
+    │   └── Copy draft snapshot to TenantConfig, mark draft as published
+    │
+    ├── Rollback → POST /api/admin/config/versions/[id]/rollback
+    │   └── Copy target snapshot to TenantConfig, create "rollback" version
     │
     └── Changes take effect on next chat page load (TenantConfigProvider refetches)
 ```
@@ -273,7 +304,7 @@ Admin loads page
 
 | Module | Purpose |
 |---|---|
-| `admin-auth.ts` | JWT decoding, SHA-256 hashing of user OIDs, admin role verification via Graph API, audit logging |
+| `admin-auth.ts` | JWT decoding, SHA-256 hashing, admin role verification, audit logging, shared `checkAdmin()`, config versioning via `createConfigVersion()` |
 | `prisma.ts` | Singleton Prisma client with LibSQL adapter for Turso (dev-safe global caching) |
 | `taxonomy-defaults.ts` | Hardcoded defaults for taxonomy, keywords, review policies, search behaviour |
 | `graph-search.ts` | Orchestrates the full retrieval pipeline + fetches user's accessible sites (tenant-aware) |

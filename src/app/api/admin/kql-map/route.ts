@@ -1,23 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminRole, logAudit } from "@/lib/admin-auth";
+import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
 
 /** PATCH /api/admin/kql-map — update KQL property map. */
 export async function PATCH(request: Request) {
-  const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId) {
-    return NextResponse.json({ error: "Missing tenant ID" }, { status: 400 });
-  }
-
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const isAdmin = await verifyAdminRole(authHeader.replace("Bearer ", ""));
-  if (!isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await checkAdmin(request);
+  if (auth instanceof NextResponse) return auth;
+  const { tenantId, userId } = auth;
 
   try {
     const body = await request.json();
@@ -35,9 +24,9 @@ export async function PATCH(request: Request) {
       data: { kqlPropertyMap },
     });
 
-    const userId = request.headers.get("x-user-id") || "";
     const mappings = Object.entries(kqlPropertyMap).map(([k, v]) => `${k}=${v}`).join(", ");
     logAudit(tenantId, userId, "update", "kql-map", `Updated KQL mapping: ${mappings}`);
+    createConfigVersion(tenantId, request, "kql-map");
 
     return NextResponse.json({ kqlPropertyMap: config.kqlPropertyMap });
   } catch {

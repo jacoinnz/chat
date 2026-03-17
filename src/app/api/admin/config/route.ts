@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyAdminRole, logAudit } from "@/lib/admin-auth";
+import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
 import {
   DEFAULT_TAXONOMY,
   DEFAULT_CONTENT_TYPES,
@@ -15,31 +15,11 @@ import type { Prisma } from "@prisma/client";
 // Prisma Json fields require InputJsonValue — cast typed defaults
 const json = <T>(v: T) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
 
-async function checkAdmin(request: Request): Promise<string | NextResponse> {
-  const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId) {
-    return NextResponse.json({ error: "Missing tenant ID" }, { status: 400 });
-  }
-
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const token = authHeader.replace("Bearer ", "");
-  const isAdmin = await verifyAdminRole(token);
-  if (!isAdmin) {
-    return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
-  }
-
-  return tenantId;
-}
-
 /** GET /api/admin/config — fetch tenant config, auto-provisions on first admin access. */
 export async function GET(request: Request) {
-  const result = await checkAdmin(request);
-  if (result instanceof NextResponse) return result;
-  const tenantId = result;
+  const auth = await checkAdmin(request);
+  if (auth instanceof NextResponse) return auth;
+  const { tenantId } = auth;
 
   try {
     const tenant = await prisma.tenant.upsert({
@@ -67,6 +47,19 @@ export async function GET(request: Request) {
       });
     }
 
+    // Fetch version metadata
+    const latestPublished = await prisma.configVersion.findFirst({
+      where: { tenantId, status: "published" },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+
+    const draft = await prisma.configVersion.findFirst({
+      where: { tenantId, status: "draft" },
+      orderBy: { version: "desc" },
+      select: { version: true, authorName: true, createdAt: true },
+    });
+
     return NextResponse.json({
       tenantName: tenant.name,
       taxonomy: config.taxonomy,
@@ -77,6 +70,9 @@ export async function GET(request: Request) {
       reviewPolicies: config.reviewPolicies ?? DEFAULT_REVIEW_POLICIES,
       searchBehaviour: config.searchBehaviour ?? DEFAULT_SEARCH_BEHAVIOUR,
       updatedAt: config.updatedAt,
+      currentVersion: latestPublished?.version ?? 0,
+      hasDraft: !!draft,
+      draft: draft ? { version: draft.version, authorName: draft.authorName, createdAt: draft.createdAt } : null,
     });
   } catch {
     return NextResponse.json(
@@ -88,9 +84,9 @@ export async function GET(request: Request) {
 
 /** PUT /api/admin/config — replace entire tenant config. */
 export async function PUT(request: Request) {
-  const result = await checkAdmin(request);
-  if (result instanceof NextResponse) return result;
-  const tenantId = result;
+  const auth = await checkAdmin(request);
+  if (auth instanceof NextResponse) return auth;
+  const { tenantId, userId } = auth;
 
   try {
     const body = await request.json();
@@ -132,8 +128,8 @@ export async function PUT(request: Request) {
       },
     });
 
-    const userId = request.headers.get("x-user-id") || "";
     logAudit(tenantId, userId, "update", "config", "Replaced full tenant configuration");
+    createConfigVersion(tenantId, request, "config");
 
     return NextResponse.json({
       taxonomy: config.taxonomy,

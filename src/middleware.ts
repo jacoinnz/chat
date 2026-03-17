@@ -23,6 +23,7 @@ export function middleware(request: NextRequest) {
     const payload = JSON.parse(atob(parts[1]));
     const tenantId = payload.tid;
     const userId = payload.oid;
+    const userName = payload.name || "";
 
     if (!tenantId || !userId) {
       return NextResponse.json(
@@ -35,6 +36,7 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next();
     response.headers.set("x-tenant-id", tenantId);
     response.headers.set("x-user-id", userId);
+    response.headers.set("x-user-name", userName);
     return response;
   } catch {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });

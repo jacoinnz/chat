@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useMsal } from "@azure/msal-react";
-import { graphScopes } from "@/lib/msal-config";
+import { useState, useCallback } from "react";
+import { useAdminFetch } from "@/hooks/use-admin-api";
 import { StatCard } from "@/components/admin/stat-card";
 import { DailyChart } from "@/components/admin/daily-chart";
 import { HealthIndicator } from "@/components/admin/health-indicator";
@@ -112,41 +111,12 @@ function sectionLabel(section: string): string {
 }
 
 export default function AdminDashboard() {
-  const { instance } = useMsal();
-  const [data, setData] = useState<AnalyticsData | null>(null);
   const [period, setPeriod] = useState("7d");
-  const [loading, setLoading] = useState(true);
 
-  const fetchAnalytics = useCallback(async (p: string) => {
-    setLoading(true);
-    try {
-      const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
-      if (!account) return;
-
-      const tokenResponse = await instance.acquireTokenSilent({
-        scopes: graphScopes.admin,
-        account,
-      });
-
-      const response = await fetch(`/api/admin/analytics?period=${p}`, {
-        headers: {
-          Authorization: `Bearer ${tokenResponse.accessToken}`,
-        },
-      });
-
-      if (response.ok) {
-        setData(await response.json());
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, [instance]);
-
-  useEffect(() => {
-    fetchAnalytics(period);
-  }, [period, fetchAnalytics]);
+  const { data, loading } = useAdminFetch<AnalyticsData>(
+    "/api/admin/analytics",
+    { params: { period } }
+  );
 
   return (
     <div className="space-y-6 max-w-5xl">

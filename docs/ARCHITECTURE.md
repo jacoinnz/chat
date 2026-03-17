@@ -73,6 +73,8 @@ Regular User                      Admin User (Tenant Control Plane)
 - **Tenant** — Azure AD tenant GUID, name, timestamps
 - **TenantConfig** — 1:1 with Tenant. JSON columns: `taxonomy`, `contentTypes`, `kqlPropertyMap`, `searchFields`, `keywords`, `reviewPolicies`, `searchBehaviour`
 - **UsageLog** — Event type (search/chat/error/no_results/graph_error/auth_error), SHA-256 hashed user ID, result count, filter keys used, intent type, timestamp. Indexed by `(tenantId, timestamp)` and `(tenantId, event)`.
+- **AuditLog** — Records admin actions (update/reset) with section, user hash, and human-readable details.
+- **ConfigVersion** — Full config snapshots. Version number (auto-incrementing per tenant), status (published/draft), JSON snapshot of all 7 sections, triggering section, author hash + display name, optional comment. Indexed by `(tenantId, createdAt)` and `(tenantId, status)`, unique on `(tenantId, version)`.
 
 ## Authentication Flow
 
@@ -383,6 +385,21 @@ Admin Browser                                Server
           on next page load)                   │
 ```
 
+### Data Layer — Admin Hooks (`src/hooks/use-admin-api.ts`)
+
+All admin pages share a common data layer via custom hooks that centralise token acquisition, data fetching, and save logic:
+
+| Hook | Purpose | Used by |
+|---|---|---|
+| `useAdminToken()` | Shared MSAL token acquisition (`Directory.Read.All`) | All other hooks |
+| `useAdminFetch<T>(endpoint, options?)` | Generic read-only fetch with loading/error state | Dashboard, Settings |
+| `useAdminSave()` | Generic PATCH with saving state + success/error messages | KQL Config (dual-save) |
+| `useAdminConfig<T>(section, saveEndpoint, defaultValue, parser?)` | Combined load-edit-save cycle | 5 config pages (metadata, content-types, keywords, review-policies, search-behaviour) |
+
+Shared UI primitives:
+- **`SaveBar`** + **`MessageBanner`** (`save-bar.tsx`) — form action buttons + status feedback
+- **`SectionCard`** (`section-card.tsx`) — white card wrapper with title + optional description
+
 ### Auth Infrastructure
 
 **Edge Middleware** (`src/middleware.ts`):
@@ -408,6 +425,39 @@ Admin Browser                                Server
 - User identity anonymised via SHA-256 hash of Azure AD object ID
 - Rate limited: 100 events per user per minute (in-memory counter)
 - Analytics API returns aggregated counts + daily breakdown for configurable periods (7d/30d/90d)
+
+### Config Versioning, Rollback & Draft States
+
+Every admin config change creates a **ConfigVersion** snapshot — a full copy of all 7 config sections at that point in time. This provides:
+
+- **Version history**: Paginated list of all changes with version number, author, section, and timestamp
+- **Rollback**: Restore config to any previous published version (creates a new "rollback" version)
+- **Save as Draft**: Save work-in-progress without affecting the live config (at most one draft per tenant)
+- **Publish**: Promote a draft to live config
+
+```
+Admin saves config section
+    │
+    ├── TenantConfig updated (live immediately)
+    ├── AuditLog entry created (who changed what)
+    └── ConfigVersion snapshot created (full config state)
+        ├── version: auto-incrementing integer
+        ├── status: "published" or "draft"
+        ├── snapshot: JSON blob of all 7 sections
+        ├── section: what triggered it (e.g., "taxonomy", "rollback")
+        ├── authorHash + authorName: who made the change
+        └── publishedAt: timestamp (null for drafts)
+```
+
+**Draft workflow**: Save as Draft → snapshot stored with `status: "draft"` → live config unchanged → admin can later Publish (copies snapshot to TenantConfig) or Discard (deletes draft row). At most one draft per tenant.
+
+**Rollback workflow**: Select target version → its snapshot is written to TenantConfig → new ConfigVersion created with `section: "rollback"`.
+
+**API endpoints**:
+- `GET /api/admin/config/versions?page=N` — paginated version list (omits snapshot blob)
+- `POST /api/admin/config/versions/[id]/rollback` — rollback to target version
+- `GET/POST/DELETE /api/admin/config/draft` — draft CRUD (at-most-one enforced)
+- `POST /api/admin/config/publish` — promote draft to live
 
 ### Database Layer
 

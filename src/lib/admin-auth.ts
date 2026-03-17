@@ -4,6 +4,8 @@
 // Server-side helpers for extracting tenant info from JWTs and
 // verifying Azure AD admin directory roles via Graph API.
 
+import { NextResponse } from "next/server";
+
 const ADMIN_ROLE_TEMPLATES = [
   "62e90394-69f5-4237-9190-012177145e10", // Global Administrator
   "f28a1f94-e044-4c59-956a-681e95fa6d63", // SharePoint Administrator
@@ -13,6 +15,12 @@ interface JwtPayload {
   tid?: string; // tenant ID
   oid?: string; // user object ID
   [key: string]: unknown;
+}
+
+export interface AdminInfo {
+  tenantId: string;
+  userId: string;
+  userName: string;
 }
 
 /** Decode the payload of a JWT without cryptographic verification.
@@ -113,5 +121,109 @@ export async function verifyAdminRole(
     );
   } catch {
     return false;
+  }
+}
+
+/** Shared admin auth check — replaces the 12-line boilerplate in each route.
+ *  Returns AdminInfo on success or a NextResponse error to return directly. */
+export async function checkAdmin(
+  request: Request
+): Promise<AdminInfo | NextResponse> {
+  const tenantId = request.headers.get("x-tenant-id");
+  if (!tenantId) {
+    return NextResponse.json({ error: "Missing tenant ID" }, { status: 400 });
+  }
+
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  const isAdmin = await verifyAdminRole(token);
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Forbidden — admin role required" }, { status: 403 });
+  }
+
+  const userId = request.headers.get("x-user-id") || "";
+  const userName = request.headers.get("x-user-name") || "";
+
+  return { tenantId, userId, userName };
+}
+
+/** Build a full config snapshot from the current TenantConfig row. */
+function configToSnapshot(config: {
+  taxonomy: unknown;
+  contentTypes: unknown;
+  kqlPropertyMap: unknown;
+  searchFields: unknown;
+  keywords: unknown;
+  reviewPolicies: unknown;
+  searchBehaviour: unknown;
+}): Record<string, unknown> {
+  return {
+    taxonomy: config.taxonomy,
+    contentTypes: config.contentTypes,
+    kqlPropertyMap: config.kqlPropertyMap,
+    searchFields: config.searchFields,
+    keywords: config.keywords,
+    reviewPolicies: config.reviewPolicies,
+    searchBehaviour: config.searchBehaviour,
+  };
+}
+
+/** Create a ConfigVersion row after a config save. Fire-and-forget — never breaks the save.
+ *  Returns the version number on success, null on failure. */
+export async function createConfigVersion(
+  tenantId: string,
+  request: Request,
+  section: string,
+  status: "published" | "draft" = "published",
+  comment?: string,
+  snapshotOverride?: Record<string, unknown>
+): Promise<{ version: number } | null> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+
+    // Build snapshot: use override for drafts, or read current config
+    let snapshot: Record<string, unknown>;
+    if (snapshotOverride) {
+      snapshot = snapshotOverride;
+    } else {
+      const config = await prisma.tenantConfig.findUnique({ where: { tenantId } });
+      if (!config) return null;
+      snapshot = configToSnapshot(config);
+    }
+
+    // Determine next version number
+    const latest = await prisma.configVersion.findFirst({
+      where: { tenantId },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    const nextVersion = (latest?.version ?? 0) + 1;
+
+    const userOid = request.headers.get("x-user-id") || "";
+    const userName = request.headers.get("x-user-name") || "";
+    const authorHash = await sha256(userOid);
+
+    await prisma.configVersion.create({
+      data: {
+        tenantId,
+        version: nextVersion,
+        status,
+        snapshot: JSON.parse(JSON.stringify(snapshot)),
+        section,
+        authorHash,
+        authorName: userName,
+        comment,
+        publishedAt: status === "published" ? new Date() : null,
+      },
+    });
+
+    return { version: nextVersion };
+  } catch {
+    // Best-effort — versioning should never break the save
+    return null;
   }
 }
