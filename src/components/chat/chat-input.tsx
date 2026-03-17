@@ -38,7 +38,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Search SharePoint files..."
+          placeholder="Type.."
           disabled={disabled}
           className="flex-1 text-sm h-9 rounded-full bg-white border-none px-4 shadow-sm focus-visible:ring-0"
           autoFocus
