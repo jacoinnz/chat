@@ -9,12 +9,18 @@ export function LoginButton() {
   const isLoggedIn = accounts.length > 0;
 
   const handleLogin = async () => {
+    const width = 390;
+    const height = 650;
+    const left = Math.max(0, (window.innerWidth - width) / 2 + (window.screenLeft ?? window.screenX));
+    const top = Math.max(0, (window.innerHeight - height) / 2 + (window.screenTop ?? window.screenY));
+
     try {
       await instance.loginPopup({
         scopes: graphScopes.search,
         redirectUri: "/redirect.html",
         popupWindowAttributes: {
-          popupSize: { width: 390, height: 650 },
+          popupSize: { width, height },
+          popupPosition: { top, left },
         },
       });
     } catch (error) {

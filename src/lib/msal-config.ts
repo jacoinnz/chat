@@ -13,6 +13,7 @@ export const msalConfig: Configuration = {
     cacheLocation: "localStorage",
   },
   system: {
+    navigatePopups: false,
     loggerOptions: {
       logLevel: LogLevel.Warning,
       loggerCallback: (level, message, containsPii) => {
