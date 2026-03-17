@@ -80,7 +80,7 @@ export function ChatPage() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-[#e8eef4]">
+    <div className="flex flex-col h-screen overflow-hidden bg-[#e8eef4]">
       <ChatHeader />
       <MessageList messages={messages} />
       <ChatInput onSend={handleSendMessage} disabled={isSearching} />
