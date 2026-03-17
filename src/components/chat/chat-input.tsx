@@ -5,6 +5,8 @@ import { Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const MAX_QUERY_LENGTH = 200;
+
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
@@ -12,6 +14,12 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState("");
+
+  const handleChange = (value: string) => {
+    if (value.length <= MAX_QUERY_LENGTH) {
+      setInput(value);
+    }
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -28,21 +36,36 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   };
 
+  const remaining = MAX_QUERY_LENGTH - input.length;
+  const showCounter = remaining <= 40;
+
   return (
     <div className="shrink-0 border-t border-[#d0d8e0] bg-[#f0f2f5]">
       <form
         onSubmit={handleSubmit}
         className="max-w-3xl mx-auto flex items-center gap-2 px-2 py-1.5"
       >
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type.."
-          disabled={disabled}
-          className="flex-1 text-sm h-9 rounded-full bg-white border-none px-4 shadow-sm focus-visible:ring-0"
-          autoFocus
-        />
+        <div className="relative flex-1">
+          <Input
+            value={input}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type.."
+            disabled={disabled}
+            maxLength={MAX_QUERY_LENGTH}
+            className="text-sm h-9 rounded-full bg-white border-none px-4 shadow-sm focus-visible:ring-0 w-full"
+            autoFocus
+          />
+          {showCounter && (
+            <span
+              className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] ${
+                remaining <= 10 ? "text-red-500" : "text-[#667781]"
+              }`}
+            >
+              {remaining}
+            </span>
+          )}
+        </div>
         <Button
           type="submit"
           disabled={disabled || !input.trim()}

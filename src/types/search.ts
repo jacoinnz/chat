@@ -27,6 +27,9 @@ export interface DriveItemResource {
       listItemUniqueId?: string;
     };
   };
+  listItem?: {
+    fields?: Record<string, string>;
+  };
 }
 
 export interface SearchResponse {
@@ -49,4 +52,10 @@ export interface ChatMessage {
   results?: SearchHit[];
   timestamp: Date;
   isLoading?: boolean;
+  intent?: {
+    intent: string;
+    refinedQuery: string;
+    sortByRecency: boolean;
+    detectedFilters: Record<string, string | boolean | undefined>;
+  };
 }

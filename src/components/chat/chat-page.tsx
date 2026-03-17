@@ -3,9 +3,11 @@
 import { useState, useCallback } from "react";
 import { useMsal } from "@azure/msal-react";
 import { ChatHeader } from "./chat-header";
+import { FilterBar } from "./filter-bar";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { searchSharePoint } from "@/lib/graph-search";
+import type { MetadataFilters } from "@/lib/taxonomy";
 import type { ChatMessage } from "@/types/search";
 
 export function ChatPage() {
@@ -20,6 +22,10 @@ export function ChatPage() {
     },
   ]);
   const [isSearching, setIsSearching] = useState(false);
+  const [filters, setFilters] = useState<MetadataFilters>({
+    approvedOnly: true,
+    hideRestricted: true,
+  });
 
   const handleSendMessage = useCallback(
     async (query: string) => {
@@ -42,7 +48,7 @@ export function ChatPage() {
       setIsSearching(true);
 
       try {
-        const { hits, total } = await searchSharePoint(instance, query);
+        const { hits, total, intent } = await searchSharePoint(instance, query, filters);
 
         const responseMessage: ChatMessage = {
           id: loadingMessage.id,
@@ -53,6 +59,7 @@ export function ChatPage() {
               : `No results found for "${query}". Try different keywords.`,
           results: hits.length > 0 ? hits : undefined,
           timestamp: new Date(),
+          intent,
         };
 
         setMessages((prev) =>
@@ -76,12 +83,13 @@ export function ChatPage() {
         setIsSearching(false);
       }
     },
-    [instance]
+    [instance, filters]
   );
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#e8eef4]">
       <ChatHeader />
+      <FilterBar filters={filters} onChange={setFilters} />
       <MessageList messages={messages} />
       <ChatInput onSend={handleSendMessage} disabled={isSearching} />
     </div>
