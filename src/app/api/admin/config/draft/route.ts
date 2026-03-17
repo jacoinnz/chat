@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, createConfigVersion } from "@/lib/admin-auth";
+import { draftPostSchema, validateBody } from "@/lib/validations";
 
 /** GET /api/admin/config/draft — return current draft snapshot or null. */
 export async function GET(request: Request) {
@@ -41,11 +42,10 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { snapshot, comment } = body;
+    const v = validateBody(draftPostSchema, body);
+    if (!v.success) return v.response;
 
-    if (!snapshot || typeof snapshot !== "object") {
-      return NextResponse.json({ error: "snapshot is required" }, { status: 400 });
-    }
+    const { snapshot, comment } = v.data;
 
     // Delete any existing draft (enforce at-most-one)
     await prisma.configVersion.deleteMany({

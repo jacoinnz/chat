@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { keywordsPatchSchema, validateBody } from "@/lib/validations";
 
 /** PATCH /api/admin/keywords — update keyword synonym groups. */
 export async function PATCH(request: Request) {
@@ -10,21 +11,10 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { keywords } = body;
+    const v = validateBody(keywordsPatchSchema, body);
+    if (!v.success) return v.response;
 
-    if (!Array.isArray(keywords)) {
-      return NextResponse.json({ error: "keywords must be an array" }, { status: 400 });
-    }
-
-    // Validate structure: each entry must have term (string) and synonyms (string[])
-    for (const entry of keywords) {
-      if (typeof entry.term !== "string" || !entry.term.trim()) {
-        return NextResponse.json({ error: "Each keyword must have a non-empty term" }, { status: 400 });
-      }
-      if (!Array.isArray(entry.synonyms) || !entry.synonyms.every((s: unknown) => typeof s === "string")) {
-        return NextResponse.json({ error: "Each keyword must have a synonyms array of strings" }, { status: 400 });
-      }
-    }
+    const { keywords } = v.data;
 
     const config = await prisma.tenantConfig.update({
       where: { tenantId },

@@ -10,6 +10,7 @@ import {
   DEFAULT_REVIEW_POLICIES,
   DEFAULT_SEARCH_BEHAVIOUR,
 } from "@/lib/taxonomy-defaults";
+import { resetSchema, validateBody } from "@/lib/validations";
 import type { Prisma } from "@prisma/client";
 
 const json = <T>(v: T) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
@@ -22,12 +23,8 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    if (body.confirm !== true) {
-      return NextResponse.json(
-        { error: "Confirmation required. Send { confirm: true }." },
-        { status: 400 }
-      );
-    }
+    const v = validateBody(resetSchema, body);
+    if (!v.success) return v.response;
 
     const config = await prisma.tenantConfig.update({
       where: { tenantId },

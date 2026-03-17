@@ -10,6 +10,7 @@ import {
   DEFAULT_REVIEW_POLICIES,
   DEFAULT_SEARCH_BEHAVIOUR,
 } from "@/lib/taxonomy-defaults";
+import { fullConfigSchema, validateBody } from "@/lib/validations";
 import type { Prisma } from "@prisma/client";
 
 // Prisma Json fields require InputJsonValue — cast typed defaults
@@ -90,14 +91,10 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json();
-    const { taxonomy, contentTypes, kqlPropertyMap, searchFields, keywords, reviewPolicies, searchBehaviour } = body;
+    const v = validateBody(fullConfigSchema, body);
+    if (!v.success) return v.response;
 
-    if (!taxonomy || !contentTypes || !kqlPropertyMap || !searchFields) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
+    const { taxonomy, contentTypes, kqlPropertyMap, searchFields, keywords, reviewPolicies, searchBehaviour } = v.data;
 
     await prisma.tenant.upsert({
       where: { tenantId },

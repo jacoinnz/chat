@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { reviewPoliciesPatchSchema, validateBody } from "@/lib/validations";
 
 /** PATCH /api/admin/review-policies — update document review policies. */
 export async function PATCH(request: Request) {
@@ -10,24 +11,10 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { reviewPolicies } = body;
+    const v = validateBody(reviewPoliciesPatchSchema, body);
+    if (!v.success) return v.response;
 
-    if (!Array.isArray(reviewPolicies)) {
-      return NextResponse.json({ error: "reviewPolicies must be an array" }, { status: 400 });
-    }
-
-    // Validate structure
-    for (const policy of reviewPolicies) {
-      if (typeof policy.contentType !== "string" || !policy.contentType.trim()) {
-        return NextResponse.json({ error: "Each policy must have a non-empty contentType" }, { status: 400 });
-      }
-      if (typeof policy.maxAgeDays !== "number" || policy.maxAgeDays < 1) {
-        return NextResponse.json({ error: "maxAgeDays must be a positive number" }, { status: 400 });
-      }
-      if (typeof policy.warningDays !== "number" || policy.warningDays < 0) {
-        return NextResponse.json({ error: "warningDays must be a non-negative number" }, { status: 400 });
-      }
-    }
+    const { reviewPolicies } = v.data;
 
     const config = await prisma.tenantConfig.update({
       where: { tenantId },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { taxonomyPatchSchema, validateBody } from "@/lib/validations";
 
 /** PATCH /api/admin/taxonomy — update taxonomy arrays (department/sensitivity/status). */
 export async function PATCH(request: Request) {
@@ -10,26 +11,10 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { taxonomy } = body;
+    const v = validateBody(taxonomyPatchSchema, body);
+    if (!v.success) return v.response;
 
-    if (!taxonomy || typeof taxonomy !== "object") {
-      return NextResponse.json(
-        { error: "Invalid taxonomy data" },
-        { status: 400 }
-      );
-    }
-
-    // Validate taxonomy structure
-    if (
-      !Array.isArray(taxonomy.department) ||
-      !Array.isArray(taxonomy.sensitivity) ||
-      !Array.isArray(taxonomy.status)
-    ) {
-      return NextResponse.json(
-        { error: "Taxonomy must contain department, sensitivity, and status arrays" },
-        { status: 400 }
-      );
-    }
+    const { taxonomy } = v.data;
 
     const config = await prisma.tenantConfig.update({
       where: { tenantId },

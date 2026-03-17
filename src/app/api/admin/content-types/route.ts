@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { contentTypesPatchSchema, validateBody } from "@/lib/validations";
 
 /** PATCH /api/admin/content-types — update content types list. */
 export async function PATCH(request: Request) {
@@ -10,14 +11,10 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { contentTypes } = body;
+    const v = validateBody(contentTypesPatchSchema, body);
+    if (!v.success) return v.response;
 
-    if (!Array.isArray(contentTypes)) {
-      return NextResponse.json(
-        { error: "contentTypes must be an array" },
-        { status: 400 }
-      );
-    }
+    const { contentTypes } = v.data;
 
     const config = await prisma.tenantConfig.update({
       where: { tenantId },

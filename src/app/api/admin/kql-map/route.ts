@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { kqlPropertyMapPatchSchema, validateBody } from "@/lib/validations";
 
 /** PATCH /api/admin/kql-map — update KQL property map. */
 export async function PATCH(request: Request) {
@@ -10,14 +11,10 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { kqlPropertyMap } = body;
+    const v = validateBody(kqlPropertyMapPatchSchema, body);
+    if (!v.success) return v.response;
 
-    if (!kqlPropertyMap || typeof kqlPropertyMap !== "object" || Array.isArray(kqlPropertyMap)) {
-      return NextResponse.json(
-        { error: "kqlPropertyMap must be an object" },
-        { status: 400 }
-      );
-    }
+    const { kqlPropertyMap } = v.data;
 
     const config = await prisma.tenantConfig.update({
       where: { tenantId },
