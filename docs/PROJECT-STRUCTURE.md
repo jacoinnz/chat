@@ -10,7 +10,7 @@ chat/
 │
 ├── prisma/                          # Database schema and config
 │   ├── schema.prisma                # Tenant, TenantConfig, UsageLog models (PostgreSQL)
-│   └── prisma.config.ts             # Prisma 7 datasource configuration
+│   └── prisma.config.ts             # Prisma 7 datasource config (Turso URL)uration
 │
 ├── src/
 │   ├── middleware.ts                # Edge middleware — JWT extraction for API routes
@@ -91,7 +91,7 @@ chat/
 │   ├── lib/
 │   │   ├── admin-auth.ts           # JWT extraction, SHA-256 hashing, admin role verification via Graph API
 │   │   ├── msal-config.ts          # MSAL configuration and auth scopes (search + admin)
-│   │   ├── prisma.ts               # Singleton Prisma client with PG adapter
+│   │   ├── prisma.ts               # Singleton Prisma client with LibSQL adapter (Turso)
 │   │   ├── graph-search.ts         # 5-step retrieval pipeline (intent → KQL → rank) + fetchUserSites()
 │   │   ├── graph-branding.ts       # Tenant logo from organisational branding API
 │   │   ├── intent.ts               # Query intent detection (keyword/question/topic/recent/person)
@@ -248,7 +248,7 @@ Admin loads page
 | Module | Purpose |
 |---|---|
 | `admin-auth.ts` | JWT decoding, SHA-256 hashing of user OIDs, admin role verification via Graph API |
-| `prisma.ts` | Singleton Prisma client with PG adapter (dev-safe global caching) |
+| `prisma.ts` | Singleton Prisma client with LibSQL adapter for Turso (dev-safe global caching) |
 | `taxonomy-defaults.ts` | Hardcoded default taxonomy values (fallback when no DB config exists) |
 | `graph-search.ts` | Orchestrates the full retrieval pipeline + fetches user's accessible sites |
 | `intent.ts` | Classifies queries, extracts entities, refines search terms (accepts optional tenant config) |

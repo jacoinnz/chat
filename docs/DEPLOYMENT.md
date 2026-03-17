@@ -21,13 +21,14 @@ The app is deployed to Vercel at **https://chat-iota-cyan.vercel.app**.
 
 This file is required — without it, Vercel may detect the wrong framework and produce 404 errors.
 
-### Vercel Postgres (Admin Portal)
+### Turso Database (Admin Portal)
 
-The admin portal stores per-tenant configuration and usage analytics in PostgreSQL:
+The admin portal stores per-tenant configuration and usage analytics in Turso (edge SQLite):
 
-1. Go to Vercel Dashboard > Storage > Add > Postgres
-2. Connect it to your project — `POSTGRES_PRISMA_URL` and `POSTGRES_URL_NON_POOLING` are auto-set
-3. Push the schema: `npx prisma db push`
+1. Sign up at [turso.tech](https://turso.tech) and create a database
+2. Get the database URL and auth token from the Turso dashboard
+3. Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel project settings
+4. Push the schema: `npx prisma db push`
 
 ### Environment Variables (Vercel Dashboard)
 
@@ -36,8 +37,8 @@ The admin portal stores per-tenant configuration and usage analytics in PostgreS
 | `NEXT_PUBLIC_AZURE_CLIENT_ID` | `f1eaf3ca-725c-4559-9306-af1afdbcf73f` |
 | `NEXT_PUBLIC_AZURE_REDIRECT_URI` | `https://chat-iota-cyan.vercel.app` |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` (server-only, powers AI synthesis) |
-| `POSTGRES_PRISMA_URL` | Auto-set by Vercel Postgres (pooled connection) |
-| `POSTGRES_URL_NON_POOLING` | Auto-set by Vercel Postgres (direct connection) |
+| `TURSO_DATABASE_URL` | `libsql://your-db-name-your-org.turso.io` |
+| `TURSO_AUTH_TOKEN` | From Turso dashboard |
 
 ### Deploy Process
 
@@ -63,9 +64,9 @@ npm install
 
 # 2. Set environment variables
 cp .env.example .env.local
-# Edit .env.local with your Azure AD client ID, Anthropic API key, and Postgres URLs
+# Edit .env.local with your Azure AD client ID, Anthropic API key, and Turso credentials
 
-# 3. Push database schema (requires Postgres URL in .env.local)
+# 3. Push database schema (requires Turso URL in .env.local)
 npx prisma db push
 npx prisma generate
 
@@ -93,5 +94,5 @@ Make sure `http://localhost:3000` is registered as a SPA redirect URI in the Azu
 | AI answers but no search results | Graph API token issue | Check MSAL auth — AI only runs after successful search |
 | Admin portal "Access Denied" | User lacks admin role | Assign Global Admin or SharePoint Admin role in Azure AD |
 | Admin portal "Access Denied" | Missing `Directory.Read.All` permission | Add the permission to the Azure AD app registration and grant admin consent |
-| Admin config 500 errors | Missing Postgres env vars | Ensure `POSTGRES_PRISMA_URL` is set and run `npx prisma db push` |
+| Admin config 500 errors | Missing Turso env vars | Ensure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set and run `npx prisma db push` |
 | Filter bar shows defaults after admin edit | Config not reloaded | Refresh the page — `TenantConfigProvider` fetches config on mount |

@@ -32,16 +32,14 @@ NEXT_PUBLIC_AZURE_CLIENT_ID=your-client-id
 NEXT_PUBLIC_AZURE_REDIRECT_URI=http://localhost:3000
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Admin portal (Vercel Postgres)
-POSTGRES_PRISMA_URL=postgres://...?pgbouncer=true&connect_timeout=15
-POSTGRES_URL_NON_POOLING=postgres://...?connect_timeout=15
+# Turso Database (admin portal)
+TURSO_DATABASE_URL=libsql://your-db-name-your-org.turso.io
+TURSO_AUTH_TOKEN=your-auth-token
 ```
 
 ### 2b. Database Setup (Admin Portal)
 
-The admin portal requires a PostgreSQL database. On Vercel, add a Postgres store from the Vercel Marketplace — environment variables are set automatically.
-
-For local development:
+The admin portal requires a Turso database. Sign up at [turso.tech](https://turso.tech), create a database, and get your URL + auth token.
 
 ```bash
 npx prisma db push    # Create/sync tables
@@ -74,7 +72,7 @@ The admin clicks the link, signs in, and approves the permissions. After that, a
 - MSAL React (Multi-tenant Microsoft 365 authentication)
 - Microsoft Graph Search API
 - Anthropic Claude Sonnet via Vercel AI SDK (`ai`, `@ai-sdk/anthropic`)
-- Prisma 7 + PostgreSQL (Vercel Postgres) for admin portal storage
+- Prisma 7 + Turso (LibSQL/SQLite) for admin portal storage
 
 ## Conversational AI
 
@@ -262,3 +260,4 @@ prisma/
 - **Usage logging**: User IDs are SHA-256 hashed before storage — no PII in the database
 - **API middleware**: Edge middleware validates Bearer tokens and extracts tenant/user claims for all admin and tenant API routes
 - **Rate limiting**: Usage logging endpoint is rate-limited (100 events per user per minute)
+- **Database**: Turso (edge SQLite) — data stays close to users, sub-millisecond reads

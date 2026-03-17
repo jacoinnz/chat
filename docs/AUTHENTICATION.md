@@ -132,7 +132,7 @@ The middleware does not perform full JWT verification — Microsoft-issued token
 |---|---|---|
 | `NEXT_PUBLIC_AZURE_CLIENT_ID` | Azure AD app registration client ID | `f1eaf3ca-725c-4559-9306-af1afdbcf73f` |
 | `NEXT_PUBLIC_AZURE_REDIRECT_URI` | Redirect URI after auth | `https://chat-iota-cyan.vercel.app` |
-| `POSTGRES_PRISMA_URL` | Pooled Postgres connection (for Prisma client) | `postgres://...?pgbouncer=true` |
-| `POSTGRES_URL_NON_POOLING` | Direct Postgres connection (for migrations) | `postgres://...` |
+| `TURSO_DATABASE_URL` | Turso database URL | `libsql://your-db.turso.io` |
+| `TURSO_AUTH_TOKEN` | Turso auth token | `eyJ...` |
 
-Azure and Anthropic variables must be set in Vercel project settings for production. Postgres variables are auto-set when adding a Vercel Postgres store.
+Azure and Anthropic variables must be set in Vercel project settings for production. Turso variables are obtained from the Turso dashboard.

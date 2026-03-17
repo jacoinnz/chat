@@ -43,7 +43,7 @@ User Browser
 
 The app uses a single Azure AD app registration with `authority: https://login.microsoftonline.com/common`. Any Microsoft 365 organisation can use the app — the tenant admin grants consent once via the admin consent URL, and all users in that tenant can then sign in.
 
-Each user's access token determines which SharePoint files they can see. Per-tenant metadata configuration is stored in PostgreSQL (Vercel Postgres) and managed through the admin portal at `/admin`.
+Each user's access token determines which SharePoint files they can see. Per-tenant metadata configuration is stored in Turso (edge SQLite) and managed through the admin portal at `/admin`.
 
 ### Tenant Configuration Flow
 
@@ -408,11 +408,11 @@ Admin Browser                                Server
 
 ### Database Layer
 
-**Prisma 7** with `@prisma/adapter-pg` driver adapter:
-- Schema at `prisma/schema.prisma` (empty datasource block — URL provided via adapter)
+**Prisma 7** with `@prisma/adapter-libsql` driver adapter (Turso):
+- Schema at `prisma/schema.prisma` (SQLite provider — Turso is LibSQL/SQLite-compatible)
 - Config at `prisma/prisma.config.ts` (datasource URL for migrations)
 - Singleton client at `src/lib/prisma.ts` (dev-safe global caching pattern)
 
 **Environment Variables:**
-- `POSTGRES_PRISMA_URL` — pooled connection string (for PrismaClient via PG adapter)
-- `POSTGRES_URL_NON_POOLING` — direct connection string (for Prisma migrations)
+- `TURSO_DATABASE_URL` — Turso database URL (`libsql://...turso.io`)
+- `TURSO_AUTH_TOKEN` — Turso authentication token
