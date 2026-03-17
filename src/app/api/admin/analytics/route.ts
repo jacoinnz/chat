@@ -50,7 +50,7 @@ export async function GET(request: Request) {
           distinct: ["userHash"],
           select: { userHash: true },
         })
-        .then((rows) => rows.length),
+        .then((rows: { userHash: string }[]) => rows.length),
     ]);
 
     const totalEvents = searchCount + chatCount + errorCount;
