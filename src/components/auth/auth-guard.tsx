@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { LoginButton } from "./login-button";
@@ -13,6 +13,12 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps) {
   const isAuthenticated = useIsAuthenticated();
   const { instance, inProgress } = useMsal();
+  const [isPopupWindow, setIsPopupWindow] = useState(true);
+
+  useEffect(() => {
+    // Detect if this is the popup window (has opener) or the main window
+    setIsPopupWindow(!!window.opener);
+  }, []);
 
   useEffect(() => {
     // Auto-trigger redirect login when opened via popup with ?login=true
@@ -22,7 +28,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
       !isAuthenticated &&
       inProgress === InteractionStatus.None
     ) {
-      // Clean up the URL param before redirecting
       window.history.replaceState({}, "", "/");
       instance.loginRedirect({
         scopes: graphScopes.search,
@@ -37,6 +42,20 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  // Main window (not the popup) — show close message when authenticated
+  if (isAuthenticated && !isPopupWindow) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-4">
+        <div className="text-center space-y-2">
+          <h1 className="text-xl font-bold">Signed in</h1>
+          <p className="text-sm text-muted-foreground">
+            You can close this tab. Use the popup window to chat.
+          </p>
+        </div>
       </div>
     );
   }
