@@ -1,12 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LoginButton } from "@/components/auth/login-button";
+import { fetchBrandingLogo } from "@/lib/graph-branding";
 
 export function ChatHeader() {
-  const { accounts } = useMsal();
+  const { instance, accounts } = useMsal();
   const account = accounts[0];
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
   const initials =
     account?.name
       ?.split(" ")
@@ -15,11 +19,18 @@ export function ChatHeader() {
       .toUpperCase()
       .slice(0, 2) || "?";
 
-  // Extract domain from user's email for tenant logo
-  const domain = account?.username?.split("@")[1];
-  const logoUrl = domain
-    ? `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
-    : null;
+  useEffect(() => {
+    if (account) {
+      fetchBrandingLogo(instance).then(setLogoUrl);
+    }
+  }, [account, instance]);
+
+  // Clean up blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (logoUrl) URL.revokeObjectURL(logoUrl);
+    };
+  }, [logoUrl]);
 
   return (
     <header className="flex items-center justify-between px-2 py-2 sm:px-4 sm:py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -27,13 +38,12 @@ export function ChatHeader() {
         {logoUrl ? (
           <img
             src={logoUrl}
-            alt={domain || "Company logo"}
-            className="h-6 w-6 sm:h-8 sm:w-8 rounded"
+            alt="Company logo"
+            className="h-6 sm:h-8 max-w-[120px] sm:max-w-[180px] object-contain"
           />
-        ) : null}
-        <h1 className="text-sm sm:text-lg font-semibold">
-          {domain || "SharePoint Search"}
-        </h1>
+        ) : (
+          <h1 className="text-sm sm:text-lg font-semibold">SharePoint Search</h1>
+        )}
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
         {account && (
