@@ -1,12 +1,14 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const cspPolicy = [
   "default-src 'self'",
-  "script-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com https://fonts.googleapis.com https://fonts.gstatic.com",
+  `connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com https://fonts.googleapis.com https://fonts.gstatic.com${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
   "frame-src 'self' https://login.microsoftonline.com",
   "base-uri 'self'",
   "form-action 'self'",
