@@ -86,8 +86,8 @@ export interface SearchBehaviour {
 }
 
 export const DEFAULT_SEARCH_BEHAVIOUR: SearchBehaviour = {
-  approvedOnly: true,
-  hideRestricted: true,
+  approvedOnly: false,
+  hideRestricted: false,
   maxResults: 15,
   recencyBoostDays: 30,
   recencyWeight: 1,

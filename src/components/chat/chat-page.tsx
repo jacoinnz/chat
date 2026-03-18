@@ -72,8 +72,8 @@ export function ChatPage() {
 
   // Use tenant-configured defaults for safety toggles
   const [filters, setFilters] = useState<MetadataFilters>({
-    approvedOnly: true,
-    hideRestricted: true,
+    approvedOnly: false,
+    hideRestricted: false,
   });
 
   // Sync filter defaults when config loads
