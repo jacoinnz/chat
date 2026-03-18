@@ -30,7 +30,7 @@ export function LoginButton() {
         variant="outline"
         onClick={handleLogout}
         size="sm"
-        className="bg-white/10 border-white text-white text-[13px] font-semibold font-[family-name:var(--font-barlow)] hover:bg-white/10 hover:text-white"
+        className="bg-white/10 border-white text-white text-[13px] font-semibold font-[family-name:var(--font-dm-sans)] hover:bg-white/10 hover:text-white"
       >
         Sign out
       </Button>
