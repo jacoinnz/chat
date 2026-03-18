@@ -221,8 +221,9 @@ export async function searchSharePoint(
 }> {
   const accessToken = await getAccessToken(msalInstance);
 
-  // Use tenant-specific max results if configured
-  const effectivePageSize = config?.searchBehaviour?.maxResults ?? pageSize;
+  // Use the higher of tenant config vs default — prevents stale DB values (e.g. old
+  // default of 15) from capping results below the current code default.
+  const effectivePageSize = Math.max(config?.searchBehaviour?.maxResults ?? 0, pageSize);
 
   // Step 2: Identify intent (using tenant config if available)
   const intent = analyzeIntent(query, config);
