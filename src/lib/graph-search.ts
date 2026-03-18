@@ -245,8 +245,9 @@ export async function searchSharePoint(
     return { hits: [], total: 0, moreResultsAvailable: false, intent };
   }
 
-  // Use tenant-specific search fields or defaults
-  const searchFields = config?.searchFields ?? [...SEARCH_FIELDS];
+  // Always include essential fields from SEARCH_FIELDS, then merge any tenant extras.
+  // Prevents stale DB config (missing new fields) from breaking URL/name resolution.
+  const searchFields = [...new Set([...SEARCH_FIELDS, ...(config?.searchFields ?? [])])];
 
   // Get SharePoint root URL for constructing file URLs from server-relative paths
   const sharePointRoot = getSharePointRoot(msalInstance);
