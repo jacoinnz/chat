@@ -79,9 +79,11 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[usage] Failed to log usage:", message);
     return NextResponse.json(
-      { error: "Failed to log usage" },
+      { error: "Failed to log usage", detail: message },
       { status: 500 }
     );
   }
