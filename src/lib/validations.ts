@@ -127,6 +127,32 @@ export const draftPostSchema = z.object({
 
 export const resetSchema = z.object({ confirm: z.literal(true) });
 
+export const featureFlagToggleSchema = z.object({
+  name: safeString(100),
+  enabled: z.boolean(),
+  description: z.string().max(500).optional(),
+});
+
+export const roleAssignSchema = z.object({
+  userHash: z.string().length(64),
+  role: z.enum(["platform_admin", "config_admin", "auditor", "viewer"]),
+});
+
+export const roleDeleteSchema = z.object({
+  userHash: z.string().length(64),
+});
+
+export const feedbackSchema = z.object({
+  messageId: safeString(200),
+  feedbackType: z.enum(["thumbs_up", "thumbs_down", "report"]),
+  comment: z.string().max(1000).optional(),
+});
+
+export const configImportSchema = z.object({
+  config: fullConfigSchema,
+  comment: z.string().max(500).optional(),
+});
+
 // ── Helper ───────────────────────────────────────────────────────────
 
 type ValidationSuccess<T> = { success: true; data: T };

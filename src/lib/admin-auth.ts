@@ -17,10 +17,20 @@ interface JwtPayload {
   [key: string]: unknown;
 }
 
+export type RoleTier = "platform_admin" | "config_admin" | "auditor" | "viewer";
+
+const ROLE_HIERARCHY: Record<RoleTier, number> = {
+  platform_admin: 4,
+  config_admin: 3,
+  auditor: 2,
+  viewer: 1,
+};
+
 export interface AdminInfo {
   tenantId: string;
   userId: string;
   userName: string;
+  role: RoleTier;
 }
 
 /** Decode the payload of a JWT without cryptographic verification.
@@ -124,6 +134,23 @@ export async function verifyAdminRole(
   }
 }
 
+/** Look up internal role for a user. Returns null if none assigned. */
+async function getInternalRole(
+  tenantId: string,
+  userOid: string
+): Promise<RoleTier | null> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const userHash = await sha256(userOid);
+    const role = await prisma.adminRole.findUnique({
+      where: { tenantId_userHash: { tenantId, userHash } },
+    });
+    return role ? (role.role as RoleTier) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Shared admin auth check — replaces the 12-line boilerplate in each route.
  *  Returns AdminInfo on success or a NextResponse error to return directly. */
 export async function checkAdmin(
@@ -148,7 +175,28 @@ export async function checkAdmin(
   const userId = request.headers.get("x-user-id") || "";
   const userName = request.headers.get("x-user-name") || "";
 
-  return { tenantId, userId, userName };
+  // Look up internal role; default Azure AD admins to platform_admin
+  const internalRole = await getInternalRole(tenantId, userId);
+  const role: RoleTier = internalRole ?? "platform_admin";
+
+  return { tenantId, userId, userName, role };
+}
+
+/** Check that admin has at least the minimum required role tier.
+ *  Returns a 403 NextResponse if insufficient, or null if OK. */
+export function requireRole(
+  auth: AdminInfo,
+  minRole: RoleTier
+): NextResponse | null {
+  const userLevel = ROLE_HIERARCHY[auth.role] ?? 0;
+  const requiredLevel = ROLE_HIERARCHY[minRole] ?? 0;
+  if (userLevel < requiredLevel) {
+    return NextResponse.json(
+      { error: `Forbidden — requires ${minRole} role or higher` },
+      { status: 403 }
+    );
+  }
+  return null;
 }
 
 /** Build a full config snapshot from the current TenantConfig row. */

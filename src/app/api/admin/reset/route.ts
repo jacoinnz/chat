@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { checkAdmin, requireRole, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { configCache } from "@/lib/config-cache";
 import {
   DEFAULT_TAXONOMY,
   DEFAULT_CONTENT_TYPES,
@@ -19,6 +20,8 @@ const json = <T>(v: T) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue
 export async function POST(request: Request) {
   const auth = await checkAdmin(request);
   if (auth instanceof NextResponse) return auth;
+  const roleCheck = requireRole(auth, "config_admin");
+  if (roleCheck) return roleCheck;
   const { tenantId, userId } = auth;
 
   try {
@@ -39,6 +42,7 @@ export async function POST(request: Request) {
       },
     });
 
+    configCache.invalidate(tenantId);
     logAudit(tenantId, userId, "reset", "config", "Reset all configuration to defaults");
     createConfigVersion(tenantId, request, "reset");
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { configCache } from "@/lib/config-cache";
 
 /** POST /api/admin/config/versions/[id]/rollback — rollback to a specific version. */
 export async function POST(
@@ -39,6 +40,7 @@ export async function POST(
       },
     });
 
+    configCache.invalidate(tenantId);
     logAudit(tenantId, userId, "update", "config", `Rolled back to version ${target.version}`);
     const result = await createConfigVersion(
       tenantId,

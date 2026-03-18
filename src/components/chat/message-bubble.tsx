@@ -1,11 +1,13 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { useState } from "react";
+import { Search, ThumbsUp, ThumbsDown } from "lucide-react";
 import { FileResultCard } from "./file-result-card";
 import type { ChatMessage, SearchHit } from "@/types/search";
 
 interface MessageBubbleProps {
   message: ChatMessage;
+  onFeedback?: (messageId: string, type: "thumbs_up" | "thumbs_down") => void;
 }
 
 function CitedText({
@@ -85,7 +87,56 @@ function IntentIndicator({
   );
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+function FeedbackButtons({
+  messageId,
+  onFeedback,
+}: {
+  messageId: string;
+  onFeedback: (messageId: string, type: "thumbs_up" | "thumbs_down") => void;
+}) {
+  const [sent, setSent] = useState<"thumbs_up" | "thumbs_down" | null>(null);
+
+  const handleClick = (type: "thumbs_up" | "thumbs_down") => {
+    if (sent) return;
+    setSent(type);
+    onFeedback(messageId, type);
+  };
+
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      <button
+        type="button"
+        onClick={() => handleClick("thumbs_up")}
+        className={`p-0.5 rounded transition-colors ${
+          sent === "thumbs_up"
+            ? "text-green-600"
+            : sent
+              ? "text-[#d0d8e0]"
+              : "text-[#9aa5ad] hover:text-green-600"
+        }`}
+        disabled={!!sent}
+      >
+        <ThumbsUp className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        onClick={() => handleClick("thumbs_down")}
+        className={`p-0.5 rounded transition-colors ${
+          sent === "thumbs_down"
+            ? "text-red-500"
+            : sent
+              ? "text-[#d0d8e0]"
+              : "text-[#9aa5ad] hover:text-red-500"
+        }`}
+        disabled={!!sent}
+      >
+        <ThumbsDown className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+export function MessageBubble({ message, onFeedback }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   const timestamp = message.timestamp.toLocaleTimeString([], {
@@ -145,6 +196,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <p className="text-[9px] text-[#667781] mt-1.5 leading-tight">
             Results from SharePoint search. Verify against official sources.
           </p>
+        )}
+
+        {!isUser && !message.isLoading && !message.isStreaming && message.content && onFeedback && (
+          <FeedbackButtons messageId={message.id} onFeedback={onFeedback} />
         )}
 
         <span className="block text-[10px] text-[#667781] text-right mt-1 -mb-0.5">

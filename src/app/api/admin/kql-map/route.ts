@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { checkAdmin, requireRole, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { configCache } from "@/lib/config-cache";
 import { kqlPropertyMapPatchSchema, validateBody } from "@/lib/validations";
 
 /** PATCH /api/admin/kql-map — update KQL property map. */
 export async function PATCH(request: Request) {
   const auth = await checkAdmin(request);
   if (auth instanceof NextResponse) return auth;
+  const roleCheck = requireRole(auth, "config_admin");
+  if (roleCheck) return roleCheck;
   const { tenantId, userId } = auth;
 
   try {
@@ -21,6 +24,7 @@ export async function PATCH(request: Request) {
       data: { kqlPropertyMap },
     });
 
+    configCache.invalidate(tenantId);
     const mappings = Object.entries(kqlPropertyMap).map(([k, v]) => `${k}=${v}`).join(", ");
     logAudit(tenantId, userId, "update", "kql-map", `Updated KQL mapping: ${mappings}`);
     createConfigVersion(tenantId, request, "kql-map");

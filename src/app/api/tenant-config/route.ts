@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { configCache } from "@/lib/config-cache";
 import {
   DEFAULT_TAXONOMY,
   DEFAULT_CONTENT_TYPES,
@@ -31,16 +32,23 @@ export async function GET(request: Request) {
     );
   }
 
+  // Check cache first
+  const cached = configCache.get(tenantId);
+  if (cached) {
+    return NextResponse.json(cached);
+  }
+
   try {
     const config = await prisma.tenantConfig.findUnique({
       where: { tenantId },
     });
 
     if (!config) {
+      configCache.set(tenantId, DEFAULTS);
       return NextResponse.json(DEFAULTS);
     }
 
-    return NextResponse.json({
+    const result = {
       taxonomy: config.taxonomy,
       contentTypes: config.contentTypes,
       kqlPropertyMap: config.kqlPropertyMap,
@@ -48,7 +56,10 @@ export async function GET(request: Request) {
       keywords: config.keywords ?? DEFAULT_KEYWORDS,
       reviewPolicies: config.reviewPolicies ?? DEFAULT_REVIEW_POLICIES,
       searchBehaviour: config.searchBehaviour ?? DEFAULT_SEARCH_BEHAVIOUR,
-    });
+    };
+
+    configCache.set(tenantId, result);
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json(DEFAULTS);
   }

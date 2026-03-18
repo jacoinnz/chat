@@ -17,6 +17,8 @@ import {
   BarChart3,
   ShieldAlert,
   History,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 interface UsageSummary {
@@ -46,6 +48,13 @@ interface ErrorMonitoring {
   errorRate24h: string;
 }
 
+interface FeedbackSummary {
+  thumbsUp: number;
+  thumbsDown: number;
+  reports: number;
+  total: number;
+}
+
 interface AnalyticsData {
   period: string;
   searchCount: number;
@@ -71,6 +80,7 @@ interface AnalyticsData {
   alerts: Alert[];
   errorMonitoring: ErrorMonitoring;
   recentChanges: AuditEntry[];
+  feedbackSummary?: FeedbackSummary;
 }
 
 const ALERT_STYLES = {
@@ -348,6 +358,36 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+
+          {/* Feedback Summary */}
+          {data.feedbackSummary && data.feedbackSummary.total > 0 && (
+            <div className="bg-white rounded-lg border border-[#d0d8e0] p-4">
+              <h3 className="text-sm font-medium text-[#1a2a3a] mb-3 flex items-center gap-1.5">
+                <MessageSquare className="h-4 w-4 text-[#667781]" />
+                User Feedback
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex items-center gap-2">
+                  <ThumbsUp className="h-4 w-4 text-green-500" />
+                  <div>
+                    <p className="text-lg font-semibold text-[#1a2a3a]">{data.feedbackSummary.thumbsUp}</p>
+                    <p className="text-[10px] text-[#667781]">Positive</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ThumbsDown className="h-4 w-4 text-red-400" />
+                  <div>
+                    <p className="text-lg font-semibold text-[#1a2a3a]">{data.feedbackSummary.thumbsDown}</p>
+                    <p className="text-[10px] text-[#667781]">Negative</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-[#1a2a3a]">{data.feedbackSummary.reports}</p>
+                  <p className="text-[10px] text-[#667781]">Reports</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Recent Admin Changes (Audit Log) */}
           <div className="bg-white rounded-lg border border-[#d0d8e0] p-4">

@@ -1,3 +1,13 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/daily-aggregate",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-cleanup",
+      "schedule": "0 3 * * 0"
+    }
+  ]
 }

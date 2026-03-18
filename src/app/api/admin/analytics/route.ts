@@ -65,6 +65,10 @@ export async function GET(request: Request) {
       tenantConfig,
       // Recent audit log entries
       recentAuditLogs,
+      // Feedback
+      feedbackThumbsUp,
+      feedbackThumbsDown,
+      feedbackReports,
     ] = await Promise.all([
       prisma.usageLog.count({
         where: { tenantId, event: "search", createdAt: { gte: since } },
@@ -166,6 +170,16 @@ export async function GET(request: Request) {
         where: { tenantId },
         orderBy: { createdAt: "desc" },
         take: 20,
+      }),
+      // Feedback counts
+      prisma.feedback.count({
+        where: { tenantId, feedbackType: "thumbs_up", createdAt: { gte: since } },
+      }),
+      prisma.feedback.count({
+        where: { tenantId, feedbackType: "thumbs_down", createdAt: { gte: since } },
+      }),
+      prisma.feedback.count({
+        where: { tenantId, feedbackType: "report", createdAt: { gte: since } },
       }),
     ]);
 
@@ -365,6 +379,12 @@ export async function GET(request: Request) {
         userHash: log.userHash.slice(0, 8) + "...",
         createdAt: log.createdAt,
       })),
+      feedbackSummary: {
+        thumbsUp: feedbackThumbsUp,
+        thumbsDown: feedbackThumbsDown,
+        reports: feedbackReports,
+        total: feedbackThumbsUp + feedbackThumbsDown + feedbackReports,
+      },
     });
   } catch {
     return NextResponse.json(

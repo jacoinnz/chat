@@ -85,6 +85,30 @@ export function ChatPage() {
     fetchUserSites(instance).then(setSites).catch(() => {});
   }, [instance]);
 
+  const handleFeedback = useCallback(
+    async (messageId: string, type: "thumbs_up" | "thumbs_down") => {
+      try {
+        const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
+        if (!account) return;
+        const tokenResponse = await instance.acquireTokenSilent({
+          scopes: graphScopes.search,
+          account,
+        });
+        fetch("/api/feedback", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokenResponse.accessToken}`,
+          },
+          body: JSON.stringify({ messageId, feedbackType: type }),
+        }).catch(() => {});
+      } catch {
+        // Best-effort
+      }
+    },
+    [instance]
+  );
+
   const handleSendMessage = useCallback(
     async (query: string) => {
       // Abort any in-flight stream
@@ -271,7 +295,7 @@ export function ChatPage() {
     <div className="flex flex-col h-screen overflow-hidden bg-[#e8eef4]">
       <ChatHeader />
       <FilterBar filters={filters} onChange={setFilters} sites={sites} />
-      <MessageList messages={messages} />
+      <MessageList messages={messages} onFeedback={handleFeedback} />
       <ChatInput onSend={handleSendMessage} disabled={isSearching} />
     </div>
   );

@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { checkAdmin, requireRole, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { configCache } from "@/lib/config-cache";
 import { keywordsPatchSchema, validateBody } from "@/lib/validations";
 
 /** PATCH /api/admin/keywords — update keyword synonym groups. */
 export async function PATCH(request: Request) {
   const auth = await checkAdmin(request);
   if (auth instanceof NextResponse) return auth;
+  const roleCheck = requireRole(auth, "config_admin");
+  if (roleCheck) return roleCheck;
   const { tenantId, userId } = auth;
 
   try {
@@ -21,6 +24,7 @@ export async function PATCH(request: Request) {
       data: { keywords },
     });
 
+    configCache.invalidate(tenantId);
     logAudit(tenantId, userId, "update", "keywords", `Updated keyword groups (${keywords.length} groups)`);
     createConfigVersion(tenantId, request, "keywords");
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { checkAdmin, requireRole, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { configCache } from "@/lib/config-cache";
 import {
   DEFAULT_TAXONOMY,
   DEFAULT_CONTENT_TYPES,
@@ -87,6 +88,8 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const auth = await checkAdmin(request);
   if (auth instanceof NextResponse) return auth;
+  const roleCheck = requireRole(auth, "config_admin");
+  if (roleCheck) return roleCheck;
   const { tenantId, userId } = auth;
 
   try {
@@ -125,6 +128,7 @@ export async function PUT(request: Request) {
       },
     });
 
+    configCache.invalidate(tenantId);
     logAudit(tenantId, userId, "update", "config", "Replaced full tenant configuration");
     createConfigVersion(tenantId, request, "config");
 

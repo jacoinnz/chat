@@ -13,6 +13,10 @@ import {
   MessageSquare,
   Settings,
   History,
+  CheckCircle,
+  UserCog,
+  Flag,
+  Upload,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -38,6 +42,15 @@ const NAV_SECTIONS = [
       { href: "/admin/review-policies", label: "Review Policies", icon: ClipboardCheck },
       { href: "/admin/search-behaviour", label: "Search Behaviour", icon: SlidersHorizontal },
       { href: "/admin/kql-config", label: "KQL Mapping", icon: Search },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { href: "/admin/onboarding", label: "Onboarding", icon: CheckCircle },
+      { href: "/admin/roles", label: "Role Management", icon: UserCog },
+      { href: "/admin/feature-flags", label: "Feature Flags", icon: Flag },
+      { href: "/admin/bulk", label: "Import / Export", icon: Upload },
     ],
   },
 ];

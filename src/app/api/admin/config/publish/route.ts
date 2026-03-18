@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { configCache } from "@/lib/config-cache";
 
 /** POST /api/admin/config/publish — publish a draft (copies snapshot to TenantConfig). */
 export async function POST(request: Request) {
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       data: { status: "published", publishedAt: new Date() },
     });
 
+    configCache.invalidate(tenantId);
     logAudit(tenantId, userId, "update", "config", `Published draft version ${draft.version}`);
 
     return NextResponse.json({
