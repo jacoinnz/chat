@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { checkAdmin, logAudit, createConfigVersion } from "@/lib/admin-auth";
+import { checkAdmin, requireRole, logAudit, createConfigVersion } from "@/lib/admin-auth";
 import { configCache } from "@/lib/config-cache";
 
 /** POST /api/admin/config/publish — publish a draft (copies snapshot to TenantConfig). */
 export async function POST(request: Request) {
   const auth = await checkAdmin(request);
   if (auth instanceof NextResponse) return auth;
+  const roleCheck = requireRole(auth, "config_admin");
+  if (roleCheck) return roleCheck;
   const { tenantId, userId } = auth;
 
   try {
