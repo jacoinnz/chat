@@ -1,4 +1,4 @@
-import { TAXONOMY, CONTENT_TYPES, type MetadataFilters, type TenantTaxonomyConfig } from "./taxonomy";
+import { CONTENT_TYPES, type MetadataFilters, type TenantTaxonomyConfig } from "./taxonomy";
 import type { KeywordGroup } from "./taxonomy-defaults";
 
 export type QueryIntent =
@@ -96,7 +96,11 @@ function expandWithSynonyms(query: string, keywords: KeywordGroup[]): string {
   return `${query} ${expansions.join(" ")}`;
 }
 
-/** Match query tokens against taxonomy values and return detected filters */
+/** Match query tokens against taxonomy values and return detected filters.
+ *  Only detects BUILT-IN SharePoint properties (ContentType) from query text.
+ *  Custom/Tier 2 properties (department, sensitivity, status) are NOT auto-detected
+ *  because they require tenant-specific site columns that may not exist.
+ *  Users can still apply those filters manually via the filter bar. */
 function detectTaxonomyFilters(
   query: string,
   config?: TenantTaxonomyConfig
@@ -104,35 +108,11 @@ function detectTaxonomyFilters(
   const filters: Partial<MetadataFilters> = {};
   const lower = query.toLowerCase();
 
-  const departments = config?.taxonomy.department ?? TAXONOMY.department;
+  // Only auto-detect ContentType — it's a built-in managed property that always exists
   const contentTypes = config?.contentTypes ?? (CONTENT_TYPES as unknown as string[]);
-  const sensitivities = config?.taxonomy.sensitivity ?? TAXONOMY.sensitivity;
-  const statuses = config?.taxonomy.status ?? TAXONOMY.status;
-
-  for (const dept of departments) {
-    if (lower.includes(dept.toLowerCase())) {
-      filters.department = dept;
-      break;
-    }
-  }
-
   for (const ct of contentTypes) {
     if (lower.includes(ct.toLowerCase())) {
       filters.contentType = ct;
-      break;
-    }
-  }
-
-  for (const sens of sensitivities) {
-    if (lower.includes(sens.toLowerCase())) {
-      filters.sensitivity = sens;
-      break;
-    }
-  }
-
-  for (const status of statuses) {
-    if (lower.includes(status.toLowerCase())) {
-      filters.status = status;
       break;
     }
   }
