@@ -134,29 +134,45 @@ function extractExtFromContentType(ct?: string): string | undefined {
   return MIME_TO_EXT[mime];
 }
 
+/** Helper to find a field value by trying multiple key names (PascalCase + camelCase). */
+function findField(fields: Record<string, string> | undefined, ...keys: string[]): string | undefined {
+  if (!fields) return undefined;
+  for (const key of keys) {
+    if (fields[key]) return fields[key];
+  }
+  return undefined;
+}
+
 /** Normalize a search hit to ensure name, webUrl, and fields are accessible.
  *  Graph Search API returns driveItem resources with only @odata.type and
- *  listItem — no name/webUrl/size. We reconstruct from managed properties. */
+ *  listItem — no name/webUrl/size. We reconstruct from available fields. */
 function normalizeHit(hit: SearchHit, rootUrl?: string): SearchHit {
   const fields = getFields(hit);
 
-  // ── webUrl: use Path managed property (full document URL) ──
+  // ── webUrl: try multiple field names ──
   if (!hit.resource.webUrl) {
-    const pathUrl = fields?.Path;
-    if (pathUrl) {
-      hit.resource.webUrl = pathUrl;
+    // Path = search managed property, FileRef = list column (server-relative)
+    const fullPath = findField(fields, "Path", "path");
+    const fileRef = findField(fields, "FileRef", "fileRef");
+    if (fullPath) {
+      hit.resource.webUrl = fullPath;
+    } else if (fileRef && rootUrl) {
+      hit.resource.webUrl = `${rootUrl}${fileRef.startsWith("/") ? "" : "/"}${fileRef}`;
     }
   }
 
-  // ── name: use Filename managed property ──
+  // ── name: try multiple field names ──
   if (!hit.resource.name) {
-    if (fields?.Filename) {
-      hit.resource.name = fields.Filename;
-    } else if (fields?.Title) {
-      hit.resource.name = fields.Title;
+    // FileLeafRef = list column filename, Filename = managed property
+    const filename = findField(fields, "FileLeafRef", "fileLeafRef", "Filename", "filename");
+    const title = findField(fields, "Title", "title");
+    if (filename) {
+      hit.resource.name = filename;
+    } else if (title) {
+      hit.resource.name = title;
     } else {
-      // Derive from file extension + summary snippet (strip HTML tags first)
-      const ext = fields?.FileExtension || extractExtFromContentType(fields?.ContentType);
+      // Last resort: derive from MIME type + summary snippet
+      const ext = extractExtFromContentType(findField(fields, "ContentType", "contentType"));
       const cleanSummary = hit.summary ? stripHighlightTags(hit.summary) : "";
       const summarySnippet = cleanSummary.slice(0, 60)?.split(/[.\n]/)[0]?.trim();
       hit.resource.name = summarySnippet
@@ -165,18 +181,20 @@ function normalizeHit(hit: SearchHit, rootUrl?: string): SearchHit {
     }
   }
 
-  // ── Fill in missing standard properties from managed properties ──
-  if (!hit.resource.lastModifiedDateTime && fields?.LastModifiedTime) {
-    hit.resource.lastModifiedDateTime = fields.LastModifiedTime;
+  // ── Fill in missing standard properties ──
+  if (!hit.resource.lastModifiedDateTime) {
+    hit.resource.lastModifiedDateTime = findField(fields, "LastModifiedTime", "lastModifiedTime", "Last Modified", "Modified");
   }
-  if (!hit.resource.createdDateTime && fields?.Created) {
-    hit.resource.createdDateTime = fields.Created;
+  if (!hit.resource.createdDateTime) {
+    hit.resource.createdDateTime = findField(fields, "Created", "created");
   }
-  if (!hit.resource.size && fields?.Size) {
-    hit.resource.size = parseInt(fields.Size, 10) || undefined;
+  if (!hit.resource.size) {
+    const sizeStr = findField(fields, "Size", "size");
+    if (sizeStr) hit.resource.size = parseInt(sizeStr, 10) || undefined;
   }
-  if (!hit.resource.lastModifiedBy?.user?.displayName && fields?.Author) {
-    hit.resource.lastModifiedBy = { user: { displayName: fields.Author } };
+  if (!hit.resource.lastModifiedBy?.user?.displayName) {
+    const author = findField(fields, "Author", "author");
+    if (author) hit.resource.lastModifiedBy = { user: { displayName: author } };
   }
 
   // Ensure listItem.fields is populated for downstream code
@@ -271,18 +289,21 @@ export async function searchSharePoint(
   // ── DEBUG: Log raw response + fields content ──
   console.group("[search-debug] Graph API Response");
   console.log("KQL:", queryString);
+  console.log("Requested fields:", searchFields);
   console.log("SharePoint root:", sharePointRoot);
-  console.log("Total:", container.total, "| Returned:", container.hits.length);
+  console.log("Total:", container.total, "| Returned:", container.hits.length, "| effectivePageSize:", effectivePageSize);
 
   container.hits.slice(0, 3).forEach((hit, i) => {
-    const f = hit.resource.listItem?.fields ?? hit.resource.fields;
-    console.log(`[search-debug] Hit #${i + 1}:`, {
+    const rawFields = hit.resource.listItem?.fields ?? hit.resource.fields;
+    console.log(`[search-debug] Hit #${i + 1} RAW:`, {
       hitId: hit.hitId,
       type: hit.resource?.["@odata.type"],
       name: hit.resource?.name,
       webUrl: hit.resource?.webUrl,
+      listItemId: hit.resource.listItem?.id,
       resourceKeys: Object.keys(hit.resource || {}),
-      fieldsContent: f ? { ...f } : "none",
+      allFieldKeys: rawFields ? Object.keys(rawFields) : "none",
+      fieldsContent: rawFields ? { ...rawFields } : "none",
       summary: hit.summary?.slice(0, 80),
     });
   });
@@ -296,6 +317,9 @@ export async function searchSharePoint(
     console.log(`[search-debug] Normalized #${i + 1}:`, {
       name: hit.resource.name,
       webUrl: hit.resource.webUrl,
+      lastModified: hit.resource.lastModifiedDateTime,
+      author: hit.resource.lastModifiedBy?.user?.displayName,
+      size: hit.resource.size,
     });
   });
 

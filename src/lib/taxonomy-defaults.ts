@@ -28,16 +28,16 @@ export const DEFAULT_KQL_PROPERTY_MAP: Record<string, string> = {
 };
 
 export const DEFAULT_SEARCH_FIELDS = [
+  "FileLeafRef",
+  "FileRef",
+  "Title",
+  "ContentType",
   "Path",
   "Filename",
-  "FileExtension",
-  "Title",
   "Author",
   "LastModifiedTime",
   "Created",
   "Size",
-  "SPWebUrl",
-  "ContentType",
   "Department",
   "Sensitivity",
   "Status",

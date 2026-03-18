@@ -157,7 +157,7 @@ export function ChatPage() {
 
       try {
         // Phase 1: Search SharePoint (with tenant config)
-        const { hits, total, intent } = await searchSharePoint(instance, query, filters, 15, config);
+        const { hits, total, intent } = await searchSharePoint(instance, query, filters, undefined, config);
         logUsage(instance, "search", {
           resultCount: hits.length,
           filtersUsed: filters,

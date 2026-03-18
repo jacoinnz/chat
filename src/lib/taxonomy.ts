@@ -99,18 +99,19 @@ export const TAXONOMY = {
 // Names must match SharePoint site column internal names (PascalCase).
 
 export const SEARCH_FIELDS = [
-  // Built-in search managed properties (always available in SharePoint Online)
+  // Built-in list column names (returned by Graph Search fields parameter)
+  "FileLeafRef",      // Filename with extension (list column)
+  "FileRef",          // Server-relative URL path (list column)
+  "Title",            // List item title (list column)
+  "ContentType",      // SharePoint content type (list column)
+  // Search managed properties (may also be returned by Graph Search)
   "Path",             // Full URL to the document
   "Filename",         // File name with extension
-  "FileExtension",    // Extension only (e.g. "docx")
-  "Title",            // List item title
   "Author",           // Author display name
   "LastModifiedTime", // Modified ISO datetime
   "Created",          // Created ISO datetime
   "Size",             // File size in bytes
-  "SPWebUrl",         // SharePoint site URL
-  "ContentType",      // SharePoint content type
-  // Custom managed properties (require tenant site columns)
+  // Custom properties (require tenant site columns)
   "Department",
   "Sensitivity",
   "Status",
