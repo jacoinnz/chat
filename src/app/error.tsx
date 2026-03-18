@@ -15,13 +15,18 @@ export default function Error({
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#e8eef4]">
-      <div className="text-center max-w-md px-6">
+      <div className="text-center max-w-lg px-6">
         <h2 className="text-lg font-semibold text-[#1a2a3a] mb-2">
           Something went wrong
         </h2>
         <p className="text-sm text-[#667781] mb-4">
           {error.message || "An unexpected error occurred."}
         </p>
+        {error.stack && (
+          <pre className="text-left text-[10px] text-[#667781] bg-white rounded-lg p-3 mb-4 max-h-48 overflow-auto border border-[#d0d8e0] whitespace-pre-wrap break-all">
+            {error.stack}
+          </pre>
+        )}
         <button
           type="button"
           onClick={reset}
