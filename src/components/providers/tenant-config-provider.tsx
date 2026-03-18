@@ -67,9 +67,10 @@ export function TenantConfigProvider({ children }: { children: ReactNode }) {
             account,
           });
         } catch {
-          tokenResponse = await instance.acquireTokenPopup({
+          await instance.acquireTokenRedirect({
             scopes: graphScopes.search,
           });
+          return;
         }
 
         const response = await fetch("/api/tenant-config", {

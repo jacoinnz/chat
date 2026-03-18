@@ -2,22 +2,16 @@
 
 import { useMsal } from "@azure/msal-react";
 import { Button } from "@/components/ui/button";
+import { graphScopes } from "@/lib/msal-config";
 
 export function LoginButton() {
   const { instance, accounts } = useMsal();
   const isLoggedIn = accounts.length > 0;
 
   const handleLogin = () => {
-    const width = 390;
-    const height = 650;
-    const left = Math.round((window.screen.width - width) / 2);
-    const top = Math.round((window.screen.height - height) / 2);
-
-    window.open(
-      "/?login=true",
-      "chatApp",
-      `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
-    );
+    instance.loginRedirect({
+      scopes: graphScopes.search,
+    });
   };
 
   const handleLogout = async () => {

@@ -30,10 +30,10 @@ async function getAccessToken(
     });
     return response.accessToken;
   } catch {
-    const response = await msalInstance.acquireTokenPopup({
+    await msalInstance.acquireTokenRedirect({
       scopes: graphScopes.search,
     });
-    return response.accessToken;
+    return "";
   }
 }
 

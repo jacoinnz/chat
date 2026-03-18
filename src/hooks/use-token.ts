@@ -7,8 +7,8 @@ import { InteractionRequiredAuthError } from "@azure/msal-browser";
 /**
  * Robust token acquisition hook with automatic fallback.
  * 1. Tries acquireTokenSilent (uses cached/refreshed token)
- * 2. Falls back to acquireTokenPopup on InteractionRequiredAuthError
- * 3. Deduplicates concurrent requests to avoid multiple popups
+ * 2. Falls back to acquireTokenRedirect on InteractionRequiredAuthError
+ * 3. Deduplicates concurrent requests to avoid multiple redirects
  */
 export function useTokenAcquisition(scopes: string[]) {
   const { instance } = useMsal();
@@ -33,12 +33,13 @@ export function useTokenAcquisition(scopes: string[]) {
         return response.accessToken;
       } catch (err) {
         if (err instanceof InteractionRequiredAuthError) {
-          // Fallback: popup for consent/re-auth
-          const response = await instance.acquireTokenPopup({
+          // Fallback: redirect for consent/re-auth
+          await instance.acquireTokenRedirect({
             scopes,
             account,
           });
-          return response.accessToken;
+          // Page will redirect — return empty string (never reached)
+          return "";
         }
         throw err;
       }
