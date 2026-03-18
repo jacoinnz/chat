@@ -97,7 +97,7 @@ export interface SearchBehaviour {
 export const DEFAULT_SEARCH_BEHAVIOUR: SearchBehaviour = {
   approvedOnly: false,
   hideRestricted: false,
-  maxResults: 25,
+  maxResults: 500,
   recencyBoostDays: 30,
   recencyWeight: 1,
   matchWeight: 1,

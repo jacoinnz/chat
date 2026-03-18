@@ -211,7 +211,7 @@ export async function searchSharePoint(
   msalInstance: IPublicClientApplication,
   query: string,
   filters?: MetadataFilters,
-  pageSize: number = 25,
+  pageSize: number = 500,
   config?: TenantTaxonomyConfig
 ): Promise<{
   hits: SearchHit[];

@@ -17,7 +17,7 @@ interface MessageBubbleProps {
 }
 
 const COLLAPSE_THRESHOLD = 500;
-const RESULTS_PAGE_SIZE = 5;
+const RESULTS_PAGE_SIZE = 10;
 
 function CitedText({
   content,
