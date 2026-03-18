@@ -59,7 +59,7 @@ export interface ChatMessage {
     intent: string;
     refinedQuery: string;
     sortByRecency: boolean;
-    detectedFilters: Record<string, string | boolean | undefined>;
+    detectedFilters: Record<string, string | boolean | string[] | undefined>;
   };
 }
 

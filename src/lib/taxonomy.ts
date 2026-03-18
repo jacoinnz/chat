@@ -114,7 +114,7 @@ export interface MetadataFilters {
   contentType?: string;
   fileType?: string;
   dateRange?: string;
-  siteUrl?: string;
+  siteUrls?: string[];
   // Custom filters (require tenant site columns)
   department?: string;
   sensitivity?: string;
@@ -166,7 +166,7 @@ export function buildKqlFilter(filters: MetadataFilters, config?: TenantTaxonomy
 
   // String-valued taxonomy filters → mapped managed properties
   for (const [key, value] of Object.entries(filters)) {
-    if (key === "approvedOnly" || key === "hideRestricted" || key === "fileType" || key === "dateRange" || key === "siteUrl") continue;
+    if (key === "approvedOnly" || key === "hideRestricted" || key === "fileType" || key === "dateRange" || key === "siteUrls") continue;
     if (typeof value === "string" && value) {
       const property = propertyMap[key];
       if (property) {
@@ -193,9 +193,14 @@ export function buildKqlFilter(filters: MetadataFilters, config?: TenantTaxonomy
     }
   }
 
-  // Site scope → Path:siteUrl (built-in managed property)
-  if (filters.siteUrl) {
-    parts.push(`Path:"${filters.siteUrl}"`);
+  // Site scope → Path filter (built-in managed property)
+  if (filters.siteUrls && filters.siteUrls.length > 0) {
+    if (filters.siteUrls.length === 1) {
+      parts.push(`Path:"${filters.siteUrls[0]}"`);
+    } else {
+      const siteParts = filters.siteUrls.map((url) => `Path:"${url}"`);
+      parts.push(`(${siteParts.join(" OR ")})`);
+    }
   }
 
   return parts.join(" AND ");

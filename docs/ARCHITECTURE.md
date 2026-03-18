@@ -226,15 +226,15 @@ Filters merge: auto-detected (from intent) + manual (from filter bar). Manual se
 
 ### Filter Bar
 
-**Site selector** (full-width dropdown): Lists all SharePoint sites the user has access to, fetched via `GET /sites?search=*`. Scopes search to the selected site using `Path:` KQL.
+**Site selector** (`SiteSelector` component, always visible above filter panel): Multi-select dropdown listing all SharePoint sites the user has access to, fetched via `GET /sites?search=*`. Users can select one or more sites to scope their search. KQL output: single site → `Path:"url"`, multiple → `(Path:"url1" OR Path:"url2" OR ...)`, none selected → all sites.
 
-**Six dropdown filters** in a 3x2 grid: Content Type, Department, Sensitivity, Status, File Type, Modified (date range).
+**Six dropdown filters** in a 3x2 grid (inside collapsible FilterBar): Content Type, Department, Sensitivity, Status, File Type, Modified (date range).
 
 **Toggles:**
 - **Approved only** (default: ON) — `Status:"Approved"` (auto-disabled when explicit status is selected)
 - **Hide restricted** (default: ON) — `NOT Sensitivity:"Restricted"` (auto-disabled when explicit sensitivity is selected)
 
-**Active filter chips:** Shown below the filter toggle bar, visible even when the filter panel is collapsed. Each chip shows the filter label and value with an X button to remove it individually. Site chips show the site display name instead of the raw URL. A "Clear filters" button resets all dropdown filters at once.
+**Active filter chips:** Shown below the filter toggle bar, visible even when the filter panel is collapsed. Each chip shows the filter label and value with an X button to remove it individually. A "Clear filters" button resets all dropdown filters at once.
 
 ## Safety & Compliance Controls (`src/lib/safety.ts`)
 

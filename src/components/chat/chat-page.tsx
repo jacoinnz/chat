@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useMsal } from "@azure/msal-react";
 import { FilterBar } from "./filter-bar";
+import { SiteSelector } from "./site-selector";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { EmptyState } from "./empty-state";
@@ -324,7 +325,12 @@ export function ChatPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#e8eef4]">
-      <FilterBar filters={filters} onChange={setFilters} sites={sites} />
+      <FilterBar filters={filters} onChange={setFilters} />
+      <SiteSelector
+        sites={sites}
+        selected={filters.siteUrls || []}
+        onChange={(urls) => setFilters((prev) => ({ ...prev, siteUrls: urls.length > 0 ? urls : undefined }))}
+      />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
           {isEmptyState ? (

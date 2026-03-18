@@ -5,12 +5,10 @@ import { SlidersHorizontal, ChevronDown, ChevronUp, X } from "lucide-react";
 import { FILE_TYPES, DATE_RANGES, type MetadataFilters } from "@/lib/taxonomy";
 import { useTenantConfig } from "@/components/providers/tenant-config-provider";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import type { SharePointSite } from "@/types/search";
 
 interface FilterBarProps {
   filters: MetadataFilters;
   onChange: (filters: MetadataFilters) => void;
-  sites: SharePointSite[];
 }
 
 const CHIP_LABELS: Record<string, string> = {
@@ -20,10 +18,9 @@ const CHIP_LABELS: Record<string, string> = {
   status: "Status",
   fileType: "File",
   dateRange: "Modified",
-  siteUrl: "Site",
 };
 
-export function FilterBar({ filters, onChange, sites }: FilterBarProps) {
+export function FilterBar({ filters, onChange }: FilterBarProps) {
   const { config } = useTenantConfig();
   const [expanded, setExpanded] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -35,9 +32,6 @@ export function FilterBar({ filters, onChange, sites }: FilterBarProps) {
     { key: "sensitivity" as const, label: "Sensitivity", options: config.taxonomy.sensitivity },
     { key: "status" as const, label: "Status", options: config.taxonomy.status },
   ];
-
-  // Build a lookup from siteUrl → displayName for chip labels
-  const siteNameMap = new Map(sites.map((s) => [s.webUrl, s.displayName]));
 
   // Collect active string-valued filters (excludes boolean toggles)
   const activeFilters = Object.entries(filters).filter(
@@ -65,29 +59,8 @@ export function FilterBar({ filters, onChange, sites }: FilterBarProps) {
   const approvedDisabled = !!filters.status;
   const restrictedDisabled = !!filters.sensitivity;
 
-  /** Render a chip value — for siteUrl, show the site name instead of the URL */
-  const chipValue = (key: string, value: string) => {
-    if (key === "siteUrl") return siteNameMap.get(value) || value;
-    return value;
-  };
-
   const filterContent = (
     <div className={isMobile && expanded ? "px-4 pb-4 pt-2 space-y-2" : "px-3 pb-2 space-y-1.5"}>
-      {/* Site selector — full width */}
-      <select
-        value={filters.siteUrl || ""}
-        onChange={(e) => handleChange("siteUrl", e.target.value)}
-        aria-label="Filter by site"
-        className="w-full h-7 text-[11px] rounded-md border border-[#d0d8e0] bg-white text-[#1a2a3a] px-2 outline-none focus:border-[#1976d2] transition-colors"
-      >
-        <option value="">All sites</option>
-        {sites.map((site) => (
-          <option key={site.id} value={site.webUrl}>
-            {site.displayName}
-          </option>
-        ))}
-      </select>
-
       {/* Taxonomy + built-in filters — 2-column grid */}
       <div className="grid grid-cols-2 gap-1.5">
         {TAXONOMY_FIELDS.map((field) => (
@@ -287,7 +260,7 @@ export function FilterBar({ filters, onChange, sites }: FilterBarProps) {
               key={key}
               className="inline-flex items-center gap-1 text-[10px] bg-[#1976d2]/10 text-[#1976d2] rounded-full px-2 py-0.5"
             >
-              <span className="font-medium">{CHIP_LABELS[key] || key}:</span> {chipValue(key, value)}
+              <span className="font-medium">{CHIP_LABELS[key] || key}:</span> {value}
               <button
                 type="button"
                 onClick={() => handleRemoveFilter(key)}

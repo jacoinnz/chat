@@ -118,7 +118,8 @@ chat/
 │   │   ├── chat/
 │   │   │   ├── chat-page.tsx        # Main orchestrator — 4-phase flow (search → cards → stream → render)
 │   │   │   ├── chat-input.tsx       # Input with Send icon, clear button, rotating placeholder, 200-char limit
-│   │   │   ├── filter-bar.tsx       # Site selector + dynamic filters + safety toggles + mobile bottom sheet
+│   │   │   ├── site-selector.tsx    # Always-visible multi-select site dropdown (scopes search to selected sites)
+│   │   │   ├── filter-bar.tsx       # Dynamic taxonomy filters + safety toggles + mobile bottom sheet
 │   │   │   ├── message-list.tsx     # Scrollable message area with auto-scroll
 │   │   │   ├── message-bubble.tsx   # Bubbles + AI label + expand/collapse + CitedText + streaming cursor
 │   │   │   ├── file-result-card.tsx # File card with safety banners + copy/favorite/preview buttons
@@ -199,7 +200,8 @@ layout.tsx
                         ├── GlobalHeader (logo, env badge, profile dropdown, sign out)
                         ├── AppSidebar (recent searches, saved queries, favorites, admin link)
                         └── ChatPage
-                            ├── FilterBar (site selector + dynamic filters + toggles + mobile bottom sheet)
+                            ├── SiteSelector (always-visible multi-select site dropdown)
+                            ├── FilterBar (dynamic filters + toggles + mobile bottom sheet)
                             ├── EmptyState (when no messages — example queries + tips + recent searches)
                             ├── MessageList
                             │   └── MessageBubble (per message)
@@ -251,7 +253,7 @@ layout.tsx
 ### Chat Flow
 
 ```
-On mount: graph-search.ts → fetchUserSites() → GET /sites?search=* → populate site selector
+On mount: graph-search.ts → fetchUserSites() → GET /sites?search=* → populate SiteSelector
 On mount: TenantConfigProvider → GET /api/tenant-config → load tenant config (or defaults)
 
 ChatInput (user types query, max 200 chars)
