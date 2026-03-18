@@ -115,7 +115,7 @@ export async function searchSharePoint(
   const requestBody = {
     requests: [
       {
-        entityTypes: ["driveItem", "listItem"],
+        entityTypes: ["driveItem"],
         query: {
           queryString,
         },
@@ -147,10 +147,17 @@ export async function searchSharePoint(
     return { hits: [], total: 0, moreResultsAvailable: false, intent };
   }
 
-  // Step 4: Permissions — handled by Graph API token scoping
+  // Step 4: Filter out hits with no usable URL (e.g. listItem entities without webUrl)
+  const validHits = container.hits.filter(
+    (hit) => hit.resource?.webUrl
+  );
+
+  if (validHits.length === 0) {
+    return { hits: [], total: 0, moreResultsAvailable: false, intent };
+  }
 
   // Step 5: Deduplicate + Rank (with tenant-specific weights and policies)
-  const deduplicated = deduplicateHits(container.hits);
+  const deduplicated = deduplicateHits(validHits);
   const ranked = rankResults(deduplicated, {
     query: intent.refinedQuery,
     intent: intent.intent,
