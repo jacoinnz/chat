@@ -27,8 +27,9 @@ export interface DriveItemResource {
       listItemUniqueId?: string;
     };
   };
-  // driveItem shape: nested listItem with fields
+  // driveItem shape: nested listItem with id + fields
   listItem?: {
+    id?: string;
     fields?: Record<string, string>;
   };
   // listItem shape: fields directly on resource

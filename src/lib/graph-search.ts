@@ -99,20 +99,61 @@ function getFields(hit: SearchHit): Record<string, string> | undefined {
   return hit.resource.listItem?.fields ?? hit.resource.fields;
 }
 
+/** Map MIME types to file extensions for display when name is missing */
+const MIME_TO_EXT: Record<string, string> = {
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/pdf": "pdf",
+  "text/plain": "txt",
+  "text/csv": "csv",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "video/mp4": "mp4",
+};
+
+/** Extract a usable file extension from the contentType field.
+ *  Graph returns: "application/vnd...sheet\n\nDocument" — we need the MIME part only. */
+function extractExtFromContentType(ct?: string): string | undefined {
+  if (!ct) return undefined;
+  const mime = ct.split("\n")[0].trim();
+  return MIME_TO_EXT[mime];
+}
+
 /** Normalize a search hit to ensure name, webUrl, and fields are accessible.
- *  Graph Search API often returns driveItem resources with only @odata.type
- *  and listItem — the actual data is in listItem.fields. */
+ *  Graph Search API returns driveItem resources with only @odata.type and
+ *  listItem — no name/webUrl/size. We reconstruct from available data. */
 function normalizeHit(hit: SearchHit, rootUrl?: string): SearchHit {
   const fields = getFields(hit);
+  const listItemId = hit.resource.listItem?.id;
 
-  // Ensure name exists — fallback to FileLeafRef or Title from fields
-  if (!hit.resource.name && fields) {
-    hit.resource.name = fields.FileLeafRef || fields.Title || fields.FileLeafRef || "";
+  // Construct webUrl from listItem GUID via SharePoint Doc.aspx handler
+  if (!hit.resource.webUrl && listItemId && rootUrl) {
+    hit.resource.webUrl = `${rootUrl}/_layouts/15/Doc.aspx?sourcedoc=%7B${listItemId}%7D&action=default`;
   }
 
-  // Ensure webUrl exists — construct from FileRef if available
+  // Construct webUrl from FileRef as fallback
   if (!hit.resource.webUrl && fields?.FileRef && rootUrl) {
     hit.resource.webUrl = `${rootUrl}${fields.FileRef}`;
+  }
+
+  // Build a display name from available data
+  if (!hit.resource.name) {
+    if (fields?.FileLeafRef) {
+      hit.resource.name = fields.FileLeafRef;
+    } else if (fields?.Title) {
+      hit.resource.name = fields.Title;
+    } else {
+      // Derive name from MIME type + summary
+      const ext = extractExtFromContentType(fields?.contentType);
+      const summarySnippet = hit.summary?.slice(0, 60)?.split(/[.\n]/)[0]?.trim();
+      hit.resource.name = summarySnippet
+        ? `${summarySnippet}${ext ? `.${ext}` : ""}`
+        : ext ? `Document.${ext}` : "";
+    }
   }
 
   // Ensure listItem.fields is populated for downstream code
