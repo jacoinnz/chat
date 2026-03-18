@@ -5,6 +5,7 @@ import { useAdminFetch } from "@/hooks/use-admin-api";
 import { StatCard } from "@/components/admin/stat-card";
 import { DailyChart } from "@/components/admin/daily-chart";
 import { HealthIndicator } from "@/components/admin/health-indicator";
+import { ServiceConnectivity } from "@/components/admin/service-connectivity";
 import {
   Loader2,
   AlertCircle,
@@ -179,6 +180,9 @@ export default function AdminDashboard() {
 
           {/* Tenant Health */}
           <HealthIndicator health={data.health} />
+
+          {/* Service Connectivity */}
+          <ServiceConnectivity />
 
           {/* Usage Summary — multi-period panels */}
           <div className="bg-white rounded-lg border border-[#d0d8e0] p-4">
