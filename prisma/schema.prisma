@@ -130,3 +130,40 @@ model UsageDailySummary {
 
   @@unique([tenantId, date])
 }
+
+model SavedQuery {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userHash  String   // SHA-256 of Azure AD OID
+  title     String
+  query     String
+  filters   Json?    // MetadataFilters snapshot
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, userHash])
+}
+
+model Favorite {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userHash    String   // SHA-256 of Azure AD OID
+  documentUrl String
+  title       String
+  siteName    String   @default("")
+  metadata    Json?    // Additional document metadata
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, userHash, documentUrl])
+}
+
+model RecentSearch {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userHash    String   // SHA-256 of Azure AD OID
+  query       String
+  filters     Json?    // MetadataFilters snapshot
+  resultCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, userHash, createdAt])
+}

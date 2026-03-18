@@ -1,11 +1,18 @@
 "use client";
 
-import { useState, FormEvent, KeyboardEvent } from "react";
-import { Send } from "lucide-react";
+import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from "react";
+import { Send, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const MAX_QUERY_LENGTH = 200;
+
+const PLACEHOLDER_EXAMPLES = [
+  "Try: 'latest HR policies'",
+  "Try: 'Q4 financial report'",
+  "Try: 'project templates'",
+  "Try: 'IT security docs'",
+];
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -14,6 +21,15 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState("");
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  // Rotate placeholder every 4 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDER_EXAMPLES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleChange = (value: string) => {
     if (value.length <= MAX_QUERY_LENGTH) {
@@ -36,6 +52,10 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   };
 
+  const handleClear = () => {
+    setInput("");
+  };
+
   const remaining = MAX_QUERY_LENGTH - input.length;
   const showCounter = remaining <= 40;
 
@@ -50,13 +70,24 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             value={input}
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type.."
+            placeholder={PLACEHOLDER_EXAMPLES[placeholderIndex]}
             disabled={disabled}
             maxLength={MAX_QUERY_LENGTH}
-            className="text-sm h-9 rounded-full bg-white border-none px-4 shadow-sm focus-visible:ring-0 w-full"
+            className="text-sm h-9 rounded-full bg-white border-none px-4 pr-8 shadow-sm focus-visible:ring-0 w-full"
             autoFocus
+            aria-label="Search query"
           />
-          {showCounter && (
+          {input && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#667781] hover:text-[#1a2a3a] transition-colors"
+              aria-label="Clear input"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {showCounter && !input && (
             <span
               className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] ${
                 remaining <= 10 ? "text-red-500" : "text-[#667781]"
@@ -71,6 +102,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           disabled={disabled || !input.trim()}
           size="icon"
           className="h-9 w-9 rounded-full bg-[#1976d2] hover:bg-[#0d3b66] text-white shadow-sm shrink-0 border-none"
+          aria-label="Send search query"
         >
           <Send className="h-4 w-4" />
         </Button>

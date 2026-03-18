@@ -9,7 +9,7 @@ chat/
 │   └── *.svg                        # Default Next.js icons
 │
 ├── prisma/                          # Database schema and config
-│   ├── schema.prisma                # Tenant, TenantConfig, UsageLog, AuditLog models (SQLite/Turso)
+│   ├── schema.prisma                # Tenant, TenantConfig, UsageLog, AuditLog, SavedQuery, Favorite, RecentSearch models (SQLite/Turso)
 │   └── prisma.config.ts             # Prisma 7 datasource config (Turso URL)
 │
 ├── src/
@@ -23,6 +23,12 @@ chat/
 │   │   │   │   └── route.ts         # GET tenant config (DB or defaults)
 │   │   │   ├── usage/
 │   │   │   │   └── route.ts         # POST anonymised usage events (rate-limited)
+│   │   │   ├── saved-queries/
+│   │   │   │   └── route.ts         # GET/POST/DELETE saved queries (max 50/user)
+│   │   │   ├── favorites/
+│   │   │   │   └── route.ts         # GET/POST/DELETE document favorites (upsert)
+│   │   │   ├── recent-searches/
+│   │   │   │   └── route.ts         # GET/POST recent searches (dedup + auto-prune)
 │   │   │   └── admin/
 │   │   │       ├── config/
 │   │   │       │   ├── route.ts     # GET/PUT full tenant config (admin, auto-provisions)
@@ -53,8 +59,10 @@ chat/
 │   │   │       │   └── route.ts     # GET usage stats, health, alerts, error monitoring, audit log (admin)
 │   │   │       ├── tenant-info/
 │   │   │       │   └── route.ts     # GET tenant info, admin roles, system status, version (admin)
-│   │   │       └── reset/
-│   │   │           └── route.ts     # POST reset config to defaults (admin, audit-logged)
+│   │   │       ├── reset/
+│   │   │       │   └── route.ts     # POST reset config to defaults (admin, audit-logged)
+│   │   │       └── health/
+│   │   │           └── route.ts     # GET system health checks (DB, Azure AD, AI, Graph API)
 │   │   ├── admin/                   # Tenant Control Plane pages
 │   │   │   ├── layout.tsx           # Admin shell — sidebar + header + auth guards
 │   │   │   ├── page.tsx             # Tenant Overview — health, usage summary, alerts, error monitoring, audit log
@@ -72,10 +80,12 @@ chat/
 │   │   │   │   └── page.tsx         # KQL property map + search fields editors
 │   │   │   ├── settings/
 │   │   │   │   └── page.tsx         # Tenant info, access control, system status, version
-│   │   │   └── version-history/
-│   │   │       └── page.tsx         # Config version history with rollback
+│   │   │   ├── version-history/
+│   │   │   │   └── page.tsx         # Config version history with rollback
+│   │   │   └── system-health/
+│   │   │       └── page.tsx         # System health dashboard (DB, Azure AD, AI, Graph API)
 │   │   ├── layout.tsx               # Root layout — wraps app in MsalProvider, Barlow font
-│   │   ├── page.tsx                 # Home page — AuthGuard > TenantConfigProvider > ChatPage
+│   │   ├── page.tsx                 # Home page — AuthGuard > TenantConfigProvider > AppShell > ChatPage
 │   │   ├── globals.css              # Tailwind CSS + ocean blue theme + WhatsApp wallpaper
 │   │   └── favicon.ico
 │   │
@@ -99,14 +109,23 @@ chat/
 │   │   │   ├── auth-guard.tsx       # Gates content behind M365 login
 │   │   │   └── login-button.tsx     # Sign in / Sign out button (opens popup)
 │   │   │
+│   │   ├── shell/
+│   │   │   ├── app-shell.tsx        # Layout wrapper — GlobalHeader + AppSidebar + main content
+│   │   │   ├── global-header.tsx    # 56px sticky header — logo, env badge, profile dropdown, sign out
+│   │   │   ├── app-sidebar.tsx      # 240px/56px collapsible sidebar — recent, saved, favorites, admin link
+│   │   │   └── sidebar-context.tsx  # React context — executeQuery/registerExecuteQuery for sidebar→chat
+│   │   │
 │   │   ├── chat/
 │   │   │   ├── chat-page.tsx        # Main orchestrator — 4-phase flow (search → cards → stream → render)
-│   │   │   ├── chat-header.tsx      # Top bar — tenant logo, user avatar, sign out
-│   │   │   ├── chat-input.tsx       # Input with Send icon, 200-char limit + counter
-│   │   │   ├── filter-bar.tsx       # Site selector + dynamic filters from tenant config + safety toggles
+│   │   │   ├── chat-input.tsx       # Input with Send icon, clear button, rotating placeholder, 200-char limit
+│   │   │   ├── filter-bar.tsx       # Site selector + dynamic filters + safety toggles + mobile bottom sheet
 │   │   │   ├── message-list.tsx     # Scrollable message area with auto-scroll
-│   │   │   ├── message-bubble.tsx   # WhatsApp-style bubbles + CitedText + streaming cursor
-│   │   │   └── file-result-card.tsx # File card with safety banners + metadata tags + citation scroll target
+│   │   │   ├── message-bubble.tsx   # Bubbles + AI label + expand/collapse + CitedText + streaming cursor
+│   │   │   ├── file-result-card.tsx # File card with safety banners + copy/favorite/preview buttons
+│   │   │   ├── empty-state.tsx      # Welcome screen with example queries + recent searches + tips
+│   │   │   ├── no-results-state.tsx # No results feedback with suggestions + clear filters
+│   │   │   ├── error-state.tsx      # Error display with retry button + role="alert"
+│   │   │   └── document-preview-panel.tsx  # 320px slide-in panel with full document metadata
 │   │   │
 │   │   ├── providers/
 │   │   │   ├── msal-provider.tsx    # MSAL initialisation and redirect handling
@@ -119,10 +138,13 @@ chat/
 │   │       ├── card.tsx
 │   │       ├── input.tsx
 │   │       ├── scroll-area.tsx
-│   │       └── separator.tsx
+│   │       ├── separator.tsx
+│   │       └── sr-only-announce.tsx  # Screen reader live region announcements
 │   │
 │   ├── hooks/
-│   │   └── use-admin-api.ts        # Admin hooks: useAdminToken, useAdminFetch, useAdminSave, useAdminConfig
+│   │   ├── use-admin-api.ts        # Admin hooks: useAdminToken, useAdminFetch, useAdminSave, useAdminConfig
+│   │   ├── use-user-data.ts        # User data hooks: useSavedQueries, useFavorites, useRecentSearches
+│   │   └── use-media-query.ts      # Responsive breakpoint hook (window.matchMedia)
 │   │
 │   ├── lib/
 │   │   ├── admin-auth.ts           # JWT extraction, SHA-256 hashing, admin role verification via Graph API
@@ -173,21 +195,27 @@ layout.tsx
             ├── (main window)      → "Close this tab" message
             └── (popup, authenticated)
                 └── TenantConfigProvider
-                    └── ChatPage
-                        ├── ChatHeader (tenant logo, avatar, sign out)
-                        ├── FilterBar (site selector + dynamic filters from tenant config + toggles + chips)
-                        ├── MessageList
-                        │   └── MessageBubble (per message)
-                        │       ├── CitedText (streamed AI text + clickable [N] citation badges)
-                        │       ├── IntentIndicator (refined query + detected filters)
-                        │       ├── FileResultCard (per search hit, id="file-card-{hitId}")
-                        │       │   ├── Sensitivity banner (Confidential/Restricted)
-                        │       │   ├── File info + metadata badges + file size + review date
-                        │       │   ├── Summary excerpt
-                        │       │   ├── Staleness warning
-                        │       │   └── Open / Download buttons
-                        │       └── Compliance disclaimer
-                        └── ChatInput (200-char limit + counter)
+                    └── AppShell
+                        ├── GlobalHeader (logo, env badge, profile dropdown, sign out)
+                        ├── AppSidebar (recent searches, saved queries, favorites, admin link)
+                        └── ChatPage
+                            ├── FilterBar (site selector + dynamic filters + toggles + mobile bottom sheet)
+                            ├── EmptyState (when no messages — example queries + tips + recent searches)
+                            ├── MessageList
+                            │   └── MessageBubble (per message)
+                            │       ├── AI Generated label (Sparkles icon)
+                            │       ├── CitedText (streamed AI text + expand/collapse + citations)
+                            │       ├── NoResultsState (suggestions + clear filters button)
+                            │       ├── ErrorState (error message + retry button)
+                            │       ├── IntentIndicator (refined query + detected filters)
+                            │       ├── FileResultCard (per search hit)
+                            │       │   ├── Sensitivity banner (Confidential/Restricted)
+                            │       │   ├── File info + metadata badges
+                            │       │   ├── Summary excerpt + staleness warning
+                            │       │   └── Open / Download / Copy Link / Favorite / Preview buttons
+                            │       └── Compliance disclaimer
+                            ├── ChatInput (200-char limit + clear button + rotating placeholder)
+                            └── DocumentPreviewPanel (320px slide-in, full metadata, Escape closes)
 ```
 
 ### Tenant Control Plane (Admin Portal)
@@ -200,7 +228,7 @@ layout.tsx
             └── AdminAuthGuard (verifies Global Admin / SharePoint Admin role)
                 ├── (denied) → "Access Denied" + link back to chat
                 └── (authorized)
-                    ├── AdminSidebar (grouped: Overview, Taxonomy, Governance)
+                    ├── AdminSidebar (grouped: Overview, Taxonomy, Governance, Administration)
                     ├── AdminHeader (tenant name + user info)
                     └── <page content>
                         ├── /admin                → Tenant Overview (health, usage summary,
@@ -209,6 +237,7 @@ layout.tsx
                         ├── /admin/settings       → Tenant info, access control (role counts),
                         │                           system status, version info
                         ├── /admin/version-history → Config version list with rollback
+                        ├── /admin/system-health  → System health dashboard (DB, Azure AD, AI, Graph API)
                         ├── /admin/metadata       → EditableList ×3 (Department, Sensitivity, Status)
                         ├── /admin/content-types  → EditableList ×1 (content types)
                         ├── /admin/keywords       → KeywordEditor (synonym groups)

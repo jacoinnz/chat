@@ -53,6 +53,8 @@ export interface ChatMessage {
   timestamp: Date;
   isLoading?: boolean;
   isStreaming?: boolean;
+  noResults?: boolean;
+  noResultsQuery?: string;
   intent?: {
     intent: string;
     refinedQuery: string;

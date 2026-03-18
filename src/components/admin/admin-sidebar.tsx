@@ -17,6 +17,7 @@ import {
   UserCog,
   Flag,
   Upload,
+  Activity,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -26,6 +27,7 @@ const NAV_SECTIONS = [
       { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
       { href: "/admin/settings", label: "Tenant Settings", icon: Settings },
       { href: "/admin/version-history", label: "Version History", icon: History },
+      { href: "/admin/system-health", label: "System Health", icon: Activity },
     ],
   },
   {

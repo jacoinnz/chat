@@ -7,6 +7,7 @@ Complete reference for all API endpoints in the SharePoint Search Chat applicati
 - [Authentication](#authentication)
 - [Public Endpoints](#public-endpoints)
 - [Auth-Protected Endpoints](#auth-protected-endpoints)
+- [User Data Endpoints](#user-data-endpoints)
 - [Admin Endpoints](#admin-endpoints)
   - [Configuration Management](#configuration-management)
   - [Version Control](#version-control)
@@ -39,7 +40,7 @@ Some admin endpoints require specific roles:
 | `platform_admin` | Manage roles and feature flags | /roles, /feature-flags |
 
 ### Regular User Endpoints
-`/api/tenant-config`, `/api/usage`, `/api/feedback` require:
+`/api/tenant-config`, `/api/usage`, `/api/feedback`, `/api/saved-queries`, `/api/favorites`, `/api/recent-searches` require:
 - `Authorization: Bearer <access_token>` header
 - Valid JWT with tenant claims
 
@@ -200,7 +201,191 @@ Submit feedback on an AI response. Regular chat users, not admin-only.
 
 ---
 
+## User Data Endpoints
+
+### Saved Queries
+
+**GET** `/api/saved-queries`
+
+List saved queries for current user. Returns up to 50 queries, ordered by creation date.
+
+**Auth:** Bearer token with valid tenant JWT claims
+
+**Response:**
+```json
+[
+  {
+    "id": "cuid",
+    "title": "HR policies search",
+    "query": "HR policies",
+    "filters": { "department": "HR" },
+    "createdAt": "2026-03-18T10:00:00.000Z"
+  }
+]
+```
+
+---
+
+**POST** `/api/saved-queries`
+
+Save a new query. Maximum 50 per user.
+
+**Request Body:**
+```json
+{
+  "title": "HR policies search",
+  "query": "HR policies",
+  "filters": { "department": "HR" }
+}
+```
+
+**Status Codes:**
+- `201`: Created
+- `400`: Validation error or limit reached (50 max)
+- `401`: Unauthorized
+
+---
+
+**DELETE** `/api/saved-queries`
+
+Delete a saved query by ID.
+
+**Request Body:**
+```json
+{
+  "id": "cuid"
+}
+```
+
+---
+
+### Favorites
+
+**GET** `/api/favorites`
+
+List favorited documents for current user.
+
+**Auth:** Bearer token with valid tenant JWT claims
+
+**Response:**
+```json
+[
+  {
+    "id": "cuid",
+    "documentUrl": "https://contoso.sharepoint.com/...",
+    "title": "Q4 Report.docx",
+    "siteName": "Finance",
+    "createdAt": "2026-03-18T10:00:00.000Z"
+  }
+]
+```
+
+---
+
+**POST** `/api/favorites`
+
+Add or update a favorite. Upserts on unique (tenantId + userHash + documentUrl).
+
+**Request Body:**
+```json
+{
+  "documentUrl": "https://contoso.sharepoint.com/...",
+  "title": "Q4 Report.docx",
+  "siteName": "Finance"
+}
+```
+
+---
+
+**DELETE** `/api/favorites`
+
+Remove a favorite by document URL.
+
+**Request Body:**
+```json
+{
+  "documentUrl": "https://contoso.sharepoint.com/..."
+}
+```
+
+---
+
+### Recent Searches
+
+**GET** `/api/recent-searches`
+
+List the 20 most recent searches for current user.
+
+**Auth:** Bearer token with valid tenant JWT claims
+
+**Response:**
+```json
+[
+  {
+    "id": "cuid",
+    "query": "HR policies",
+    "resultCount": 12,
+    "createdAt": "2026-03-18T10:00:00.000Z"
+  }
+]
+```
+
+---
+
+**POST** `/api/recent-searches`
+
+Record a search. Deduplicates within 1 hour. Auto-prunes to 50 entries.
+
+**Request Body:**
+```json
+{
+  "query": "HR policies",
+  "resultCount": 12
+}
+```
+
+---
+
 ## Admin Endpoints
+
+### System Health
+
+#### Get System Health
+
+**GET** `/api/admin/health`
+
+Run health checks against all external services (Database, Azure AD, AI Provider, Graph API).
+
+**Auth:** Admin role required
+
+**Response:**
+```json
+{
+  "overall": "healthy" | "degraded" | "critical",
+  "services": [
+    {
+      "name": "Database",
+      "status": "healthy",
+      "latencyMs": 45,
+      "message": "Connected"
+    },
+    {
+      "name": "Azure AD",
+      "status": "healthy",
+      "latencyMs": 120,
+      "message": "Authenticated"
+    }
+  ],
+  "checkedAt": "2026-03-18T10:00:00.000Z"
+}
+```
+
+**Status Codes:**
+- `200`: Success
+- `401`: Unauthorized
+- `403`: Forbidden
+
+---
 
 ### Configuration Management
 

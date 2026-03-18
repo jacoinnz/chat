@@ -10,15 +10,21 @@ layout.tsx (root)
 └── AuthGuard
 ├── Login screen
 └── TenantConfigProvider
+└── AppShell
+├── GlobalHeader
+├── AppSidebar
 └── ChatPage
-├── ChatHeader
-├── FilterBar
+├── FilterBar (+ mobile bottom sheet)
+├── EmptyState (welcome + example queries)
 ├── MessageList
 │   └── MessageBubble
-│       ├── CitedText
+│       ├── AI Generated label
+│       ├── CitedText (+ expand/collapse)
+│       ├── NoResultsState / ErrorState
 │       ├── IntentIndicator
-│       └── FileResultCard
-└── ChatInput
+│       └── FileResultCard (+ copy/favorite/preview)
+├── ChatInput (+ clear button + rotating placeholder)
+└── DocumentPreviewPanel
 
 
 ### Admin Portal
@@ -37,7 +43,8 @@ layout.tsx (root)
 ├── /admin/keywords → KeywordEditor
 ├── /admin/review-policies → ReviewPolicyEditor
 ├── /admin/search-behaviour → Sliders/toggles
-└── /admin/kql-config → KqlMapEditor + EditableList
+├── /admin/kql-config → KqlMapEditor + EditableList
+└── /admin/system-health → DB, Azure AD, AI, Graph API health checks
 
 
 ### Shared Providers & Hooks
@@ -50,6 +57,11 @@ layout.tsx (root)
 | `useAdminFetch` | GET API calls with loading/error state |
 | `useAdminSave` | PATCH calls with save feedback |
 | `useAdminConfig` | Combined load-edit-save lifecycle per config section |
+| `useSavedQueries` | CRUD saved queries with API persistence |
+| `useFavorites` | Toggle document favorites with API persistence |
+| `useRecentSearches` | Track recent searches with auto-dedup |
+| `useMediaQuery` | Responsive breakpoint detection |
+| `SidebarContext` | Cross-component communication (sidebar → chat) |
 
 ---
 
@@ -57,15 +69,22 @@ layout.tsx (root)
 
 ✅ **Implemented / Working:**
 
-- MSAL auth + popup login  
-- Graph API search with tenant-aware KQL  
-- AI synthesis integration (Claude)  
-- Chat UI (header, filters, messages, file cards)  
-- Admin portal layout, auth guard, sidebar, header  
-- Admin pages for Overview, Settings, Metadata, Content Types, Keywords, Review Policies, Search Behaviour, KQL Config  
-- Prisma/Turso DB connection + migrations  
-- Usage logging and audit logging  
-- TenantConfigProvider dynamic config for chat  
+- MSAL auth + popup login
+- Graph API search with tenant-aware KQL
+- AI synthesis integration (Claude)
+- Application shell (GlobalHeader + AppSidebar + collapsible sidebar)
+- Chat UI (filters with mobile bottom sheet, messages, file cards with copy/favorite/preview)
+- Empty state with example queries + tips, no-results state, error state
+- AI Generated label + expand/collapse for long responses
+- Document preview panel (320px slide-in with full metadata)
+- Saved queries, favorites, recent searches (API + DB + hooks)
+- Admin portal layout, auth guard, sidebar, header
+- Admin pages for Overview, Settings, Metadata, Content Types, Keywords, Review Policies, Search Behaviour, KQL Config, System Health
+- System health dashboard (DB, Azure AD, AI Provider, Graph API checks with latency)
+- Prisma/Turso DB connection + migrations
+- Usage logging and audit logging
+- TenantConfigProvider dynamic config for chat
+- Accessibility: ARIA labels, focus-visible styles, SR announcements, keyboard navigation
 - Error handling, fallback, and security (CSP, SRI, sessionStorage, sanitization)
 
 ---
@@ -74,33 +93,34 @@ layout.tsx (root)
 
 ### 3.1 Chat Enhancements
 
-- [ ] Pagination / infinite scroll for file cards  
-- [ ] Advanced AI summarization options (multi-document, multi-turn)  
-- [ ] User feedback for AI responses (thumbs up/down, report inaccuracies)  
-- [ ] Search suggestions / auto-complete using tenant keywords  
+- [ ] Pagination / infinite scroll for file cards
+- [ ] Advanced AI summarization options (multi-document, multi-turn)
+- [x] User feedback for AI responses (thumbs up/down)
+- [x] Search suggestions / example queries in empty state
+- [x] Saved queries + favorites + recent searches
 
 ### 3.2 Admin Portal
 
-- [ ] Analytics dashboards (trend charts, peak search hours, query volume)  
-- [ ] Audit log filters (date range, event type, anonymized user)  
-- [ ] Bulk update metadata / content types / keywords  
-- [ ] Role management UI (Global Admin vs SharePoint Admin)  
-- [ ] System status page (Vercel uptime, Turso connection, Claude API health)  
-- [ ] Notifications / toast system for admin saves / errors  
+- [x] Analytics dashboards (trend charts, peak search hours, query volume)
+- [ ] Audit log filters (date range, event type, anonymized user)
+- [x] Bulk update metadata / content types / keywords (import/export)
+- [x] Role management UI
+- [x] System health page (DB, Azure AD, AI Provider, Graph API)
+- [ ] Notifications / toast system for admin saves / errors
 
 ### 3.3 Data & API Improvements
 
-- [ ] Automated seeding for new tenants  
-- [ ] Versioned TenantConfig for rollback / staging  
-- [ ] API rate limiting for high-traffic tenants  
+- [x] Automated seeding for new tenants
+- [x] Versioned TenantConfig for rollback / staging
+- [ ] API rate limiting for high-traffic tenants
 - [ ] Enhanced usage analytics (event enrichment)
 
 ### 3.4 Security & Compliance
 
-- [ ] Admin activity audit (who changed what, when)  
-- [ ] Data retention policies for usage logs / audit logs  
-- [ ] MSAL security improvements (token refresh handling)  
-- [ ] Server-side validation for KQL / metadata changes  
+- [x] Admin activity audit (who changed what, when)
+- [x] Data retention policies for usage logs / audit logs (weekly cleanup cron)
+- [ ] MSAL security improvements (token refresh handling)
+- [x] Server-side validation for KQL / metadata changes  
 
 ### 3.5 Developer Experience
 
@@ -120,14 +140,18 @@ flowchart TB
     ChatPage["ChatPage"]
     AuthGuard["AuthGuard"]
     TenantConfig["TenantConfigProvider"]
-    ChatHeader["ChatHeader"]
+    AppShell["AppShell"]
+    GlobalHeader["GlobalHeader"]
+    AppSidebar["AppSidebar"]
     FilterBar["FilterBar"]
+    EmptyState["EmptyState"]
     MessageList["MessageList"]
     MessageBubble["MessageBubble"]
     CitedText["CitedText"]
     IntentIndicator["IntentIndicator"]
     FileResultCard["FileResultCard"]
     ChatInput["ChatInput"]
+    DocPreview["DocumentPreviewPanel"]
 
     %% Admin Portal
     AdminLayout["admin/layout.tsx"]
@@ -137,6 +161,7 @@ flowchart TB
     AdminPages["Admin Page Content"]
     Overview["Overview"]
     Settings["Settings"]
+    SystemHealth["System Health"]
     Metadata["Metadata"]
     ContentTypes["Content Types"]
     Keywords["Keywords"]
@@ -144,20 +169,23 @@ flowchart TB
     SearchBehaviour["Search Behaviour"]
     KQLConfig["KQL Config"]
 
-    %% Hooks / Providers
-    TenantConfigProvider -->|Provides| ChatPage
+    %% Chat Flow
     MsalWrapper -->|Wraps| ChatRoot
     ChatRoot --> AuthGuard
     AuthGuard --> TenantConfig
-    TenantConfig --> ChatPage
-    ChatPage --> ChatHeader
+    TenantConfig --> AppShell
+    AppShell --> GlobalHeader
+    AppShell --> AppSidebar
+    AppShell --> ChatPage
     ChatPage --> FilterBar
+    ChatPage --> EmptyState
     ChatPage --> MessageList
     MessageList --> MessageBubble
     MessageBubble --> CitedText
     MessageBubble --> IntentIndicator
     MessageBubble --> FileResultCard
     ChatPage --> ChatInput
+    ChatPage --> DocPreview
 
     %% Admin Flow
     AdminLayout --> AdminAuthGuard
@@ -166,6 +194,7 @@ flowchart TB
     AdminAuthGuard --> AdminPages
     AdminPages --> Overview
     AdminPages --> Settings
+    AdminPages --> SystemHealth
     AdminPages --> Metadata
     AdminPages --> ContentTypes
     AdminPages --> Keywords
@@ -178,6 +207,9 @@ flowchart TB
     useAdminFetch["useAdminFetch"] --> AdminPages
     useAdminSave["useAdminSave"] --> AdminPages
     useAdminConfig["useAdminConfig"] --> AdminPages
+    useSavedQueries["useSavedQueries"] --> AppSidebar
+    useFavorites["useFavorites"] --> AppSidebar
+    useRecentSearches["useRecentSearches"] --> AppSidebar
 
 
     5. Summary

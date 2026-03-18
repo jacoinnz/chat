@@ -153,6 +153,29 @@ export const configImportSchema = z.object({
   comment: z.string().max(500).optional(),
 });
 
+// ── User data schemas ────────────────────────────────────────────────
+
+export const savedQueryCreateSchema = z.object({
+  title: safeString(100),
+  query: safeString(200),
+  filters: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const savedQueryDeleteSchema = z.object({
+  id: safeString(50),
+});
+
+export const favoriteCreateSchema = z.object({
+  documentUrl: z.string().url().max(2000),
+  title: safeString(200),
+  siteName: z.string().max(200).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const favoriteDeleteSchema = z.object({
+  documentUrl: z.string().url().max(2000),
+});
+
 // ── Helper ───────────────────────────────────────────────────────────
 
 type ValidationSuccess<T> = { success: true; data: T };

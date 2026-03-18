@@ -396,6 +396,16 @@ All admin pages share a common data layer via custom hooks that centralise token
 | `useAdminSave()` | Generic PATCH with saving state + success/error messages | KQL Config (dual-save) |
 | `useAdminConfig<T>(section, saveEndpoint, defaultValue, parser?)` | Combined load-edit-save cycle | 5 config pages (metadata, content-types, keywords, review-policies, search-behaviour) |
 
+### Data Layer — User Hooks (`src/hooks/use-user-data.ts`)
+
+Chat-facing hooks for user data persistence, using `graphScopes.search` tokens:
+
+| Hook | Purpose | Used by |
+|---|---|---|
+| `useSavedQueries()` | CRUD saved queries (GET list + `saveQuery()` + `deleteQuery()`) | AppSidebar |
+| `useFavorites()` | Document favorites (GET list + `toggleFavorite(url, title, site)`) | AppSidebar, FileResultCard |
+| `useRecentSearches()` | Recent searches (GET list + `recordSearch(query, count)` fire-and-forget) | AppSidebar, EmptyState, ChatPage |
+
 Shared UI primitives:
 - **`SaveBar`** + **`MessageBanner`** (`save-bar.tsx`) — form action buttons + status feedback
 - **`SectionCard`** (`section-card.tsx`) — white card wrapper with title + optional description
@@ -403,7 +413,7 @@ Shared UI primitives:
 ### Auth Infrastructure
 
 **Edge Middleware** (`src/middleware.ts`):
-- Matches `/api/admin/*`, `/api/tenant-config`, `/api/usage`
+- Matches `/api/admin/*`, `/api/tenant-config`, `/api/usage`, `/api/feedback`, `/api/saved-queries`, `/api/favorites`, `/api/recent-searches`
 - Decodes JWT (no cryptographic verification — Microsoft-issued tokens verified by Graph on use)
 - Extracts `tid` (tenant ID) and `oid` (user ID) from token claims
 - Forwards as `x-tenant-id` and `x-user-id` headers to route handlers

@@ -44,5 +44,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/admin/:path*", "/api/tenant-config", "/api/usage", "/api/feedback"],
+  matcher: ["/api/admin/:path*", "/api/tenant-config", "/api/usage", "/api/feedback", "/api/saved-queries", "/api/favorites", "/api/recent-searches"],
 };

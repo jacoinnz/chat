@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Clock } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Clock, Copy, Heart, Eye, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,6 +20,9 @@ import type { SearchHit } from "@/types/search";
 
 interface FileResultCardProps {
   hit: SearchHit;
+  onPreview?: (hit: SearchHit) => void;
+  isFavorited?: boolean;
+  onToggleFavorite?: (url: string, title: string, siteName?: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -53,7 +57,7 @@ const PAGE_TYPE = {
   emoji: "\uD83C\uDF10",
 };
 
-export function FileResultCard({ hit }: FileResultCardProps) {
+export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }: FileResultCardProps) {
   const { resource } = hit;
   const isPage = isSharePointPage(hit);
   const fileType = isPage ? PAGE_TYPE : getFileTypeInfo(resource.name);
@@ -70,8 +74,9 @@ export function FileResultCard({ hit }: FileResultCardProps) {
   const keywords = fields?.Keywords
     ? fields.Keywords.split(",").map((k) => k.trim()).filter(Boolean)
     : [];
-  // Derive overdue from freshness assessment (avoids impure Date.now() in render)
   const reviewOverdue = freshness.warning?.startsWith("Review overdue") ?? false;
+
+  const [copied, setCopied] = useState(false);
 
   const handleOpen = () => {
     window.open(resource.webUrl, "_blank", "noopener,noreferrer");
@@ -84,9 +89,27 @@ export function FileResultCard({ hit }: FileResultCardProps) {
     window.open(downloadUrl, "_blank", "noopener,noreferrer");
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(resource.webUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* fallback silently */ }
+  };
+
+  const handleToggleFavorite = () => {
+    onToggleFavorite?.(resource.webUrl, resource.name, siteName);
+  };
+
+  const handlePreview = () => {
+    onPreview?.(hit);
+  };
+
   return (
     <div
       id={`file-card-${hit.hitId}`}
+      role="article"
+      aria-label={`File: ${resource.name}`}
       className="rounded-md bg-[#f5f5f5] border border-[#e0e0e0] hover:bg-[#eeeeee] transition-all duration-300 overflow-hidden"
     >
       {showWarning && banner && (
@@ -200,12 +223,13 @@ export function FileResultCard({ hit }: FileResultCardProps) {
               </div>
             )}
 
-            <div className="flex gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+            <div className="flex gap-1.5 sm:gap-2 mt-1.5 sm:mt-2 flex-wrap">
               <Button
                 size="sm"
                 variant="default"
                 onClick={handleOpen}
                 className="h-6 text-[10px] sm:text-xs px-2 sm:px-3 bg-[#1976d2] hover:bg-[#0d3b66] text-white border-none"
+                aria-label={`Open ${resource.name}`}
               >
                 Open
               </Button>
@@ -214,9 +238,54 @@ export function FileResultCard({ hit }: FileResultCardProps) {
                 variant="outline"
                 onClick={handleDownload}
                 className="h-6 text-[10px] sm:text-xs px-2 sm:px-3 border-[#1976d2] text-[#1976d2] hover:bg-[#1976d2]/10"
+                aria-label={`Download ${resource.name}`}
               >
                 Download
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyLink}
+                className="h-6 text-[10px] sm:text-xs px-2 sm:px-3 border-[#d0d8e0] text-[#667781] hover:bg-[#f0f2f5]"
+                aria-label={copied ? "Link copied" : "Copy link"}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3 mr-0.5" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3 mr-0.5" />
+                    Copy
+                  </>
+                )}
+              </Button>
+              {onToggleFavorite && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleToggleFavorite}
+                  className={`h-6 text-[10px] sm:text-xs px-2 border-[#d0d8e0] hover:bg-[#f0f2f5] ${
+                    isFavorited ? "text-red-500 border-red-200" : "text-[#667781]"
+                  }`}
+                  aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+                  aria-pressed={isFavorited}
+                >
+                  <Heart className={`h-3 w-3 ${isFavorited ? "fill-current" : ""}`} />
+                </Button>
+              )}
+              {onPreview && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handlePreview}
+                  className="h-6 text-[10px] sm:text-xs px-2 border-[#d0d8e0] text-[#667781] hover:bg-[#f0f2f5]"
+                  aria-label={`Preview ${resource.name}`}
+                >
+                  <Eye className="h-3 w-3" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

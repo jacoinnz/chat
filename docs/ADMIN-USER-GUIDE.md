@@ -44,7 +44,7 @@ This guide provides step-by-step instructions for administrators of the SharePoi
 
 The admin portal is organized into four sections:
 
-- **Overview:** Dashboard, Settings, Version History
+- **Overview:** Dashboard, Settings, Version History, System Health
 - **Taxonomy:** Metadata, Content Types, Keywords
 - **Governance:** Review Policies, Search Behaviour, KQL Config
 - **Administration:** Onboarding, Role Management, Feature Flags, Import/Export

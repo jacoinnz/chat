@@ -2,16 +2,19 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useMsal } from "@azure/msal-react";
-import { ChatHeader } from "./chat-header";
 import { FilterBar } from "./filter-bar";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
+import { EmptyState } from "./empty-state";
+import { DocumentPreviewPanel } from "./document-preview-panel";
 import { searchSharePoint, fetchUserSites } from "@/lib/graph-search";
 import { buildDocumentContext, buildConversationHistory } from "@/lib/context-builder";
 import { useTenantConfig } from "@/components/providers/tenant-config-provider";
+import { useSidebarContext } from "@/components/shell/sidebar-context";
+import { useRecentSearches, useFavorites } from "@/hooks/use-user-data";
 import { graphScopes } from "@/lib/msal-config";
 import type { MetadataFilters } from "@/lib/taxonomy";
-import type { ChatMessage, ChatApiRequest, SharePointSite } from "@/types/search";
+import type { ChatMessage, ChatApiRequest, SharePointSite, SearchHit } from "@/types/search";
 
 /** Fire-and-forget usage log. Non-blocking — failures are silently ignored. */
 async function logUsage(
@@ -48,6 +51,11 @@ async function logUsage(
 export function ChatPage() {
   const { instance } = useMsal();
   const { config } = useTenantConfig();
+  const { registerExecuteQuery } = useSidebarContext();
+  const { recordSearch } = useRecentSearches();
+  const { favorites, toggleFavorite } = useFavorites();
+  const favoritedUrls = new Set(favorites.map((f) => f.documentUrl));
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -58,6 +66,8 @@ export function ChatPage() {
     },
   ]);
   const [isSearching, setIsSearching] = useState(false);
+  const [previewHit, setPreviewHit] = useState<SearchHit | null>(null);
+  const [srAnnouncement, setSrAnnouncement] = useState("");
 
   // Use tenant-configured defaults for safety toggles
   const [filters, setFilters] = useState<MetadataFilters>({
@@ -77,6 +87,13 @@ export function ChatPage() {
       }));
     }
   }, [config]);
+
+  // Register sidebar handler for cross-component communication
+  useEffect(() => {
+    registerExecuteQuery((query: string) => {
+      if (query) handleSendMessage(query);
+    });
+  }); // intentionally no deps — always register latest handler
 
   const [sites, setSites] = useState<SharePointSite[]>([]);
   const abortRef = useRef<AbortController | null>(null);
@@ -135,6 +152,7 @@ export function ChatPage() {
 
       setMessages((prev) => [...prev, userMessage, loadingMessage]);
       setIsSearching(true);
+      setSrAnnouncement("Searching...");
 
       try {
         // Phase 1: Search SharePoint (with tenant config)
@@ -145,14 +163,20 @@ export function ChatPage() {
           intentType: intent.intent,
         });
 
+        // Record search for recent searches
+        recordSearch(query, hits.length);
+
         if (hits.length === 0) {
           logUsage(instance, "no_results", { intentType: intent.intent });
+          setSrAnnouncement("No results found");
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
                 ? {
                     ...m,
-                    content: `No results found for "${query}". Try different keywords.`,
+                    content: "",
+                    noResults: true,
+                    noResultsQuery: query,
                     isLoading: false,
                     intent,
                   }
@@ -164,6 +188,7 @@ export function ChatPage() {
         }
 
         // Phase 2: Show results + start streaming
+        setSrAnnouncement(`Found ${hits.length} result${hits.length !== 1 ? "s" : ""}`);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -288,15 +313,45 @@ export function ChatPage() {
         abortRef.current = null;
       }
     },
-    [instance, filters, messages, config]
+    [instance, filters, messages, config, recordSearch]
   );
 
+  const isEmptyState = messages.length === 1 && messages[0].id === "welcome";
+
+  const handleSelectQuery = (query: string) => {
+    handleSendMessage(query);
+  };
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#e8eef4]">
-      <ChatHeader />
+    <div className="flex flex-col h-full overflow-hidden bg-[#e8eef4]">
       <FilterBar filters={filters} onChange={setFilters} sites={sites} />
-      <MessageList messages={messages} onFeedback={handleFeedback} />
-      <ChatInput onSend={handleSendMessage} disabled={isSearching} />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isEmptyState ? (
+            <EmptyState onSelectQuery={handleSelectQuery} />
+          ) : (
+            <MessageList
+              messages={messages}
+              onFeedback={handleFeedback}
+              onSelectQuery={handleSelectQuery}
+              onPreview={setPreviewHit}
+              favoritedUrls={favoritedUrls}
+              onToggleFavorite={toggleFavorite}
+            />
+          )}
+          <ChatInput onSend={handleSendMessage} disabled={isSearching} />
+        </div>
+        {previewHit && (
+          <DocumentPreviewPanel
+            hit={previewHit}
+            onClose={() => setPreviewHit(null)}
+          />
+        )}
+      </div>
+      {/* Screen reader announcements */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {srAnnouncement}
+      </div>
     </div>
   );
 }
