@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { extractTenantInfo } from "@/lib/admin-auth";
 
+// In-memory cache of tenant IDs we've already ensured exist in the DB
+const knownTenants = new Set<string>();
+
 // Simple in-memory rate limiter: 100 events per user per minute
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
@@ -49,12 +52,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Ensure tenant exists (upsert to avoid FK constraint failures)
-    await prisma.tenant.upsert({
-      where: { tenantId: tenantInfo.tenantId },
-      create: { tenantId: tenantInfo.tenantId },
-      update: {},
-    });
+    // Ensure tenant exists (skip DB call if we've seen this tenant before)
+    if (!knownTenants.has(tenantInfo.tenantId)) {
+      try {
+        await prisma.tenant.create({ data: { tenantId: tenantInfo.tenantId } });
+      } catch {
+        // Already exists (unique constraint) — expected
+      }
+      knownTenants.add(tenantInfo.tenantId);
+    }
 
     // Extract only filter keys used (not values — no PII)
     let filtersUsed: string | null = null;
