@@ -68,10 +68,11 @@ export function deduplicateHits(hits: SearchHit[]): SearchHit[] {
       continue;
     }
 
-    // Key 2: name + size (same file copied to multiple locations)
+    // Key 2: webUrl (unique per item), fallback to name + size for copies
     const name = hit.resource.name?.toLowerCase() || "";
-    const size = hit.resource.size ?? -1;
-    const key = `ns:${name}:${size}`;
+    const key = hit.resource.webUrl
+      ? `url:${hit.resource.webUrl}`
+      : `ns:${name}:${hit.resource.size ?? -1}`;
     const existing = seen.get(key);
     if (!existing || hit.rank < existing.rank) {
       seen.set(key, hit);
