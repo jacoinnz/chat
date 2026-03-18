@@ -152,6 +152,50 @@ This document provides solutions to common issues in the SharePoint Search Chat 
    - Delete local storage entries
    - Force full login to acquire new token with correct scopes
 
+### Files show as "Untitled" with no Open/Download links
+
+**Symptoms:** Search returns results but file cards show "Untitled" or generic names, and Open/Download buttons don't work.
+
+**Cause:** The Graph Search API returns `driveItem` resources with only `@odata.type` and `listItem` — no standard `name`, `webUrl`, or `size` properties. The `normalizeHit()` function reconstructs these from `listItem.fields`, but only if the correct field names are requested.
+
+**Solutions:**
+
+1. Check requested fields match what Graph returns:
+   - Open browser DevTools Console and search for `Requested fields:`
+   - Essential fields: `FileLeafRef`, `FileRef`, `Path`, `Filename`, `Title`
+   - If only old fields appear (e.g., just `ContentType`, `Department`), the tenant's stored `searchFields` config is overriding code defaults
+
+2. Fix stale DB config:
+   - The code now merges `SEARCH_FIELDS` with tenant config (stale values can't omit essential fields)
+   - If the issue persists, update search fields in admin portal at `/admin/kql-config`
+
+3. Check `allFieldKeys` in console debug:
+   - Only `contentType` returned → Graph doesn't return `FileLeafRef`/`FileRef` for this content
+   - The fallback derives names from summary snippets + MIME type extensions
+
+### Only N results showing (fewer than total)
+
+**Symptoms:** Search shows "Found 132 results" but only displays 15 or 25.
+
+**Cause:** The Graph Search API `size` parameter limits returned results. Value is determined by `Math.max(config.searchBehaviour.maxResults, pageSize)`. Stale DB config may have `maxResults: 15` from old defaults.
+
+**Solutions:**
+
+1. Update search behaviour in admin portal (`/admin/search-behaviour`) to increase max results
+2. The code default is now 500 (Graph API maximum per request)
+3. The `Math.max()` logic ensures the code default acts as a floor
+
+### Site shows "SharePoint · /" instead of actual site name
+
+**Symptoms:** File cards show generic "Site: SharePoint · /" instead of the actual site name and folder path.
+
+**Cause:** The `extractSiteName()` and `extractFolderPath()` functions parse the `webUrl` looking for `/sites/` or `/teams/` segments. If `webUrl` is empty or in a different format, they return defaults.
+
+**Solutions:**
+
+1. Ensure `Path` or `FileRef` managed properties are being returned by Graph (check console for `allFieldKeys`)
+2. The SharePoint root URL is derived from the MSAL account username — verify the account is from the correct tenant
+
 ### Slow search performance
 
 **Symptoms:** Search queries take >5 seconds to complete.

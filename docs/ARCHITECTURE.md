@@ -123,12 +123,15 @@ POST https://graph.microsoft.com/v1.0/search/query
   "requests": [{
     "entityTypes": ["driveItem", "listItem"],
     "query": { "queryString": "refined query + KQL filters" },
-    "fields": ["department", "docType", "sensitivity", "status", "reviewDate", "keywords"],
+    "fields": ["FileLeafRef", "FileRef", "Title", "ContentType", "Path", "Filename",
+               "Author", "LastModifiedTime", "Created", "Size", "Department", ...],
     "from": 0,
-    "size": 15
+    "size": 500
   }]
 }
 ```
+
+> **Note:** The Graph Search API returns driveItem resources with minimal properties — often only `@odata.type` and `listItem` (no `name`, `webUrl`, `size`). The `normalizeHit()` function in `graph-search.ts` reconstructs these from managed properties and list column fields returned in `listItem.fields`. The `fields` parameter always includes essential code defaults (merged with tenant config) to prevent stale DB config from breaking URL/name resolution.
 
 KQL is constructed by combining:
 - Sanitised refined query (question words stripped)
@@ -142,7 +145,8 @@ Handled automatically by Microsoft Graph — the user's access token restricts r
 
 **Deduplication** (`src/lib/content-prep.ts`):
 - By `listItemUniqueId` (exact same item)
-- By `name + size` (same file in multiple locations)
+- By `webUrl` (same URL from different entity types)
+- By `hitId` as fallback (when name/webUrl are undefined)
 - Keeps highest-ranked hit
 
 **Custom Ranking** (`src/lib/ranking.ts`):
@@ -204,11 +208,34 @@ Custom properties use auto-mapped managed property names by default. If auto-map
 
 ### Graph Search Fields
 
-The `fields` parameter in the Graph Search API request specifies which list item fields to return for display. Field names use PascalCase to match SharePoint column internal names:
+The `fields` parameter in the Graph Search API request specifies which list item fields to return. The code always merges `SEARCH_FIELDS` (essential fields) with any tenant-configured extras, preventing stale DB config from omitting critical fields.
 
 ```typescript
-SEARCH_FIELDS = ["ContentType", "Department", "Sensitivity", "Status", "ReviewDate", "Keywords"]
+SEARCH_FIELDS = [
+  // List column names (returned by Graph Search for listItem/driveItem entities)
+  "FileLeafRef", "FileRef", "Title", "ContentType",
+  // Search managed properties (may also be returned)
+  "Path", "Filename", "Author", "LastModifiedTime", "Created", "Size",
+  // Custom tenant properties
+  "Department", "Sensitivity", "Status", "ReviewDate", "Keywords",
+]
 ```
+
+> **Graph API quirk:** Field values are returned in camelCase (e.g., `contentType` not `ContentType`). The `getFields()` helper normalizes keys to PascalCase so downstream display code works consistently.
+
+### Hit Normalization (`normalizeHit()`)
+
+The Graph Search API often returns driveItem resources with only `@odata.type` and `listItem` — no standard properties like `name`, `webUrl`, or `size`. The `normalizeHit()` function reconstructs these:
+
+| Property | Primary Source | Fallback Sources |
+|---|---|---|
+| `webUrl` | `fields.Path` (managed property) | `fields.FileRef` + SharePoint root URL |
+| `name` | `fields.FileLeafRef` or `fields.Filename` | `fields.Title` → summary snippet + MIME extension |
+| `lastModifiedDateTime` | Resource property | `fields.LastModifiedTime` |
+| `size` | Resource property | `fields.Size` |
+| `lastModifiedBy` | Resource property | `fields.Author` |
+
+The SharePoint root URL is derived from the MSAL account username (e.g., `user@contoso.onmicrosoft.com` → `https://contoso.sharepoint.com`). When `FileRef` provides a server-relative path (e.g., `/sites/Finance/Documents/Budget.xlsx`), the full URL is constructed by prepending the root.
 
 ### KQL Filter Construction
 

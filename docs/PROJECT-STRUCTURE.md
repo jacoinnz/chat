@@ -171,7 +171,12 @@ chat/
 │   ├── ARCHITECTURE.md              # System design, retrieval pipeline, safety controls, admin portal
 │   ├── PROJECT-STRUCTURE.md         # This file — directory tree + data flow
 │   ├── AUTHENTICATION.md            # MSAL setup, Azure AD config, token flow, admin auth
-│   └── DEPLOYMENT.md                # Vercel deployment, Turso setup, env vars, troubleshooting
+│   ├── DEPLOYMENT.md                # Vercel deployment, Turso setup, env vars, troubleshooting
+│   ├── TROUBLESHOOTING.md           # Troubleshooting runbook — auth, search, AI, DB, deployment
+│   ├── API-REFERENCE.md             # REST API endpoint documentation
+│   ├── ADMIN-USER-GUIDE.md          # Administrator portal user guide
+│   ├── ENTERPRISE-NEXT-STEPS.md     # Enterprise feature progress tracker
+│   └── roadmap.md                   # Component roadmap + next stage development
 │
 ├── .env.example                     # Environment variable template
 ├── .env.local                       # Local environment variables (not committed)
@@ -338,11 +343,11 @@ Admin loads page
 | `admin-auth.ts` | JWT decoding, SHA-256 hashing, admin role verification, audit logging, shared `checkAdmin()`, config versioning via `createConfigVersion()` |
 | `prisma.ts` | Singleton Prisma client with LibSQL adapter for Turso (dev-safe global caching) |
 | `taxonomy-defaults.ts` | Hardcoded defaults for taxonomy, keywords, review policies, search behaviour |
-| `graph-search.ts` | Orchestrates the full retrieval pipeline + fetches user's accessible sites (tenant-aware) |
+| `graph-search.ts` | Orchestrates the full retrieval pipeline + fetches user's accessible sites. Includes `normalizeHit()` (reconstructs name/webUrl from Graph fields), `getFields()` (camelCase→PascalCase normalization), `findField()` (multi-key lookup), `getSharePointRoot()` (derives tenant URL from MSAL account) |
 | `intent.ts` | Classifies queries, extracts entities, expands synonyms, refines search terms |
 | `ranking.ts` | Scores and re-orders results by configurable relevance weights |
 | `taxonomy.ts` | TenantTaxonomyConfig interface (7 sections), MetadataFilters, KQL filter construction |
-| `content-prep.ts` | Deduplication, summary formatting, page detection |
+| `content-prep.ts` | Deduplication (by listItemUniqueId → webUrl → hitId), summary formatting, highlight tag stripping, page detection |
 | `safety.ts` | Input/content sanitisation, sensitivity checks, policy-aware freshness assessment |
 | `context-builder.ts` | Prepares document context + conversation history for Claude API |
 | `prompts.ts` | Builds Claude system prompt with document injection + keyword grounding |

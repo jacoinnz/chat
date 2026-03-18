@@ -288,46 +288,11 @@ export async function searchSharePoint(
     return { hits: [], total: 0, moreResultsAvailable: false, intent };
   }
 
-  // ── DEBUG: Log raw response + fields content ──
-  console.group("[search-debug] Graph API Response");
-  console.log("KQL:", queryString);
-  console.log("Requested fields:", searchFields);
-  console.log("SharePoint root:", sharePointRoot);
-  console.log("Total:", container.total, "| Returned:", container.hits.length, "| effectivePageSize:", effectivePageSize);
-
-  container.hits.slice(0, 3).forEach((hit, i) => {
-    const rawFields = hit.resource.listItem?.fields ?? hit.resource.fields;
-    console.log(`[search-debug] Hit #${i + 1} RAW:`, {
-      hitId: hit.hitId,
-      type: hit.resource?.["@odata.type"],
-      name: hit.resource?.name,
-      webUrl: hit.resource?.webUrl,
-      listItemId: hit.resource.listItem?.id,
-      resourceKeys: Object.keys(hit.resource || {}),
-      allFieldKeys: rawFields ? Object.keys(rawFields) : "none",
-      fieldsContent: rawFields ? { ...rawFields } : "none",
-      summary: hit.summary?.slice(0, 80),
-    });
-  });
-  // ── END DEBUG ──
-
   // Step 4: Normalize hits — fill in name/webUrl from fields
   const normalized = container.hits.map((hit) => normalizeHit(hit, sharePointRoot));
 
-  // Log normalization results
-  normalized.slice(0, 3).forEach((hit, i) => {
-    console.log(`[search-debug] Normalized #${i + 1}:`, {
-      name: hit.resource.name,
-      webUrl: hit.resource.webUrl,
-      lastModified: hit.resource.lastModifiedDateTime,
-      author: hit.resource.lastModifiedBy?.user?.displayName,
-      size: hit.resource.size,
-    });
-  });
-
   // Step 5: Deduplicate + Rank
   const deduplicated = deduplicateHits(normalized);
-  console.log("[search-debug] Dedup:", normalized.length, "→", deduplicated.length);
 
   const ranked = rankResults(deduplicated, {
     query: intent.refinedQuery,
@@ -337,8 +302,6 @@ export async function searchSharePoint(
     searchBehaviour: config?.searchBehaviour,
     reviewPolicies: config?.reviewPolicies,
   });
-  console.log("[search-debug] Final:", ranked.length, "results");
-  console.groupEnd();
 
   return {
     hits: ranked,
