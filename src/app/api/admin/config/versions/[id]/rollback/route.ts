@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin, requireRole, logAudit, createConfigVersion } from "@/lib/admin-auth";
 import { configCache } from "@/lib/config-cache";
@@ -32,13 +33,13 @@ export async function POST(
     await prisma.tenantConfig.update({
       where: { tenantId },
       data: {
-        taxonomy: snapshot.taxonomy as any,
-        contentTypes: snapshot.contentTypes as any,
-        kqlPropertyMap: snapshot.kqlPropertyMap as any,
-        searchFields: snapshot.searchFields as any,
-        keywords: snapshot.keywords as any,
-        reviewPolicies: snapshot.reviewPolicies as any,
-        searchBehaviour: snapshot.searchBehaviour as any,
+        taxonomy: snapshot.taxonomy as Prisma.InputJsonValue,
+        contentTypes: snapshot.contentTypes as Prisma.InputJsonValue,
+        kqlPropertyMap: snapshot.kqlPropertyMap as Prisma.InputJsonValue,
+        searchFields: snapshot.searchFields as Prisma.InputJsonValue,
+        keywords: snapshot.keywords as Prisma.InputJsonValue,
+        reviewPolicies: snapshot.reviewPolicies as Prisma.InputJsonValue,
+        searchBehaviour: snapshot.searchBehaviour as Prisma.InputJsonValue,
       },
     });
 

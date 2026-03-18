@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
+import Link from "next/link";
 import { ShieldAlert, Loader2 } from "lucide-react";
 import { useTokenAcquisition } from "@/hooks/use-token";
 import { graphScopes } from "@/lib/msal-config";
@@ -81,12 +82,12 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
             You need Global Administrator or SharePoint Administrator role to
             access the admin portal.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-flex items-center gap-2 px-4 py-2 bg-[#1976d2] text-white rounded-md text-sm hover:bg-[#1565c0] transition-colors"
           >
             Back to Chat
-          </a>
+          </Link>
         </div>
       </div>
     );

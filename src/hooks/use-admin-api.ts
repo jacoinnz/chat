@@ -15,6 +15,7 @@ export function useAdminToken() {
 
 export function useAdminFetch<T>(
   endpoint: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config JSON shape varies per endpoint
   options?: { parser?: (data: any) => T; params?: Record<string, string> }
 ) {
   const { getToken } = useAdminToken();
@@ -124,6 +125,7 @@ export function useAdminConfig<T>(
   section: string,
   saveEndpoint: string,
   defaultValue: T,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config JSON shape varies per section
   parser?: (config: any) => T
 ) {
   const { getToken } = useAdminToken();
