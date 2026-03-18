@@ -5,6 +5,14 @@ import { applyRateLimit } from "@/lib/rate-limit";
 import type { ChatApiRequest } from "@/types/search";
 
 export async function POST(request: Request) {
+  // Early exit if AI is not configured — search results still shown on the client
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return Response.json(
+      { error: "AI service not configured" },
+      { status: 503 }
+    );
+  }
+
   const rateLimited = applyRateLimit(request, "search");
   if (rateLimited) return rateLimited;
 

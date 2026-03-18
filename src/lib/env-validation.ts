@@ -3,7 +3,7 @@ import { z } from "zod";
 const envSchema = z.object({
   TURSO_DATABASE_URL: z.string().min(1, "TURSO_DATABASE_URL is required"),
   TURSO_AUTH_TOKEN: z.string().min(1, "TURSO_AUTH_TOKEN is required"),
-  ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required"),
+  ANTHROPIC_API_KEY: z.string().optional(), // Optional — AI summary disabled when absent
   NEXT_PUBLIC_AZURE_CLIENT_ID: z.string().min(1, "NEXT_PUBLIC_AZURE_CLIENT_ID is required"),
   CRON_SECRET: z.string().optional(),
 });
