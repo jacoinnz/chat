@@ -116,9 +116,10 @@ export async function GET(request: Request) {
         schema: "1.1.0", // Bumped for AuditLog addition
       },
     });
-  } catch {
+  } catch (err) {
+    console.error("[tenant-info] Error:", err);
     return NextResponse.json(
-      { error: "Failed to fetch tenant info" },
+      { error: "Failed to fetch tenant info", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 }
     );
   }
