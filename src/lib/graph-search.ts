@@ -37,8 +37,8 @@ async function getAccessToken(
   }
 }
 
-/** Merge detected filters with manual filters (manual takes priority) */
-function mergeFilters(
+/** @internal Merge detected filters with manual filters (manual takes priority) */
+export function mergeFilters(
   manual: MetadataFilters,
   detected: Partial<MetadataFilters>
 ): MetadataFilters {
@@ -50,10 +50,10 @@ function mergeFilters(
   } as MetadataFilters;
 }
 
-/** Build enhanced KQL parts from intent analysis.
+/** @internal Build enhanced KQL parts from intent analysis.
  *  Skips FileType/date KQL when the filter bar already provides those values
  *  to avoid contradictory or duplicate conditions. */
-function buildIntentKql(intent: IntentResult, filters: MetadataFilters): string {
+export function buildIntentKql(intent: IntentResult, filters: MetadataFilters): string {
   const parts: string[] = [];
 
   if (intent.author) {
