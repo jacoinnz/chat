@@ -28,7 +28,7 @@ function CitedText({
   results?: SearchHit[];
   isStreaming?: boolean;
 }) {
-  const parts = content.split(/(\[\d+\])/g);
+  const parts = (content || "").split(/(\[\d+\])/g);
 
   const handleCitationClick = (index: number) => {
     if (!results || index < 1 || index > results.length) return;
@@ -166,7 +166,8 @@ export function MessageBubble({
   });
 
   // Detect error messages
-  const isError = !isUser && message.content.startsWith("Search failed:");
+  const content = message.content || "";
+  const isError = !isUser && content.startsWith("Search failed:");
 
   if (message.isLoading) {
     return (
@@ -192,7 +193,7 @@ export function MessageBubble({
   }
 
   // Determine if content should be collapsible
-  const isLongContent = !isUser && message.content.length > COLLAPSE_THRESHOLD;
+  const isLongContent = !isUser && content.length > COLLAPSE_THRESHOLD;
   const showFullContent = !isLongContent || expanded;
 
   return (
@@ -207,7 +208,7 @@ export function MessageBubble({
         }`}
       >
         {/* AI Generated label */}
-        {!isUser && message.content && !message.isLoading && !isError && (
+        {!isUser && content && !message.isLoading && !isError && (
           <div className="flex items-center gap-1 mb-1 text-[10px] text-[#1976d2] font-medium">
             <Sparkles className="h-3 w-3" />
             AI Generated
@@ -224,15 +225,15 @@ export function MessageBubble({
 
         {/* Error state */}
         {isError && (
-          <ErrorState message={message.content.replace("Search failed: ", "")} />
+          <ErrorState message={content.replace("Search failed: ", "")} />
         )}
 
         {/* Normal content with optional collapse */}
-        {message.content && !isError && !message.noResults && (
+        {content && !isError && !message.noResults && (
           <div className="relative">
             <div className={!showFullContent ? "max-h-[200px] overflow-hidden" : ""}>
               <CitedText
-                content={message.content}
+                content={content}
                 results={message.results}
                 isStreaming={message.isStreaming}
               />
@@ -296,7 +297,7 @@ export function MessageBubble({
           </p>
         )}
 
-        {!isUser && !message.isLoading && !message.isStreaming && message.content && onFeedback && !isError && (
+        {!isUser && !message.isLoading && !message.isStreaming && content && onFeedback && !isError && (
           <FeedbackButtons messageId={message.id} onFeedback={onFeedback} />
         )}
 

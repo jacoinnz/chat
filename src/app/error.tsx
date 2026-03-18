@@ -22,11 +22,6 @@ export default function Error({
         <p className="text-sm text-[#667781] mb-4">
           {error.message || "An unexpected error occurred."}
         </p>
-        {error.stack && (
-          <pre className="text-left text-[10px] text-[#667781] bg-white rounded-lg p-3 mb-4 max-h-48 overflow-auto border border-[#d0d8e0] whitespace-pre-wrap break-all">
-            {error.stack}
-          </pre>
-        )}
         <button
           type="button"
           onClick={reset}
