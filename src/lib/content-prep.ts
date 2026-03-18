@@ -46,33 +46,25 @@ export function isSharePointPage(hit: SearchHit): boolean {
 }
 
 /**
- * Remove duplicate search results. Two hits are considered duplicates if they
- * share the same file name AND file size (same file in multiple locations),
- * or if they share the same listItemUniqueId. The highest-ranked (lowest rank
- * number) hit is kept.
+ * Remove duplicate search results. Uses hitId as primary key (always unique
+ * per Graph API result). Falls back to listItemUniqueId or webUrl for
+ * cross-entity dedup. Keeps the highest-ranked (lowest rank number) hit.
  */
 export function deduplicateHits(hits: SearchHit[]): SearchHit[] {
   const seen = new Map<string, SearchHit>();
 
   for (const hit of hits) {
+    // Primary key: hitId is always unique per search result
     const uniqueId =
       hit.resource.parentReference?.sharepointIds?.listItemUniqueId;
 
-    // Key 1: listItemUniqueId (exact same item)
-    if (uniqueId) {
-      const key = `uid:${uniqueId}`;
-      const existing = seen.get(key);
-      if (!existing || hit.rank < existing.rank) {
-        seen.set(key, hit);
-      }
-      continue;
-    }
+    // Use listItemUniqueId to merge driveItem+listItem for same document
+    const key = uniqueId
+      ? `uid:${uniqueId}`
+      : hit.resource.webUrl
+        ? `url:${hit.resource.webUrl}`
+        : `hit:${hit.hitId}`;
 
-    // Key 2: webUrl (unique per item), fallback to name + size for copies
-    const name = hit.resource.name?.toLowerCase() || "";
-    const key = hit.resource.webUrl
-      ? `url:${hit.resource.webUrl}`
-      : `ns:${name}:${hit.resource.size ?? -1}`;
     const existing = seen.get(key);
     if (!existing || hit.rank < existing.rank) {
       seen.set(key, hit);

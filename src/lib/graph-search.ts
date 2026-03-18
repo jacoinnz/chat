@@ -37,6 +37,23 @@ async function getAccessToken(
   }
 }
 
+/** Derive the SharePoint root URL from the MSAL account.
+ *  e.g. user@contoso.onmicrosoft.com → https://contoso.sharepoint.com
+ *  or   user@contoso.com → https://contoso.sharepoint.com */
+function getSharePointRoot(msalInstance: IPublicClientApplication): string | undefined {
+  const account = msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0];
+  if (!account?.username) return undefined;
+
+  const domain = account.username.split("@")[1];
+  if (!domain) return undefined;
+
+  // Extract tenant name from domain
+  // contoso.onmicrosoft.com → contoso
+  // contoso.com → contoso
+  const tenant = domain.replace(".onmicrosoft.com", "").split(".")[0];
+  return `https://${tenant}.sharepoint.com`;
+}
+
 /** @internal Merge detected filters with manual filters (manual takes priority) */
 export function mergeFilters(
   manual: MetadataFilters,
@@ -77,20 +94,20 @@ export function buildIntentKql(intent: IntentResult, filters: MetadataFilters): 
 }
 
 /** Get the fields object from a search hit regardless of entity type.
- *  driveItem: resource.listItem.fields
- *  listItem: resource.fields (fields directly on resource) */
+ *  Graph API nests fields at resource.listItem.fields for driveItem results. */
 function getFields(hit: SearchHit): Record<string, string> | undefined {
   return hit.resource.listItem?.fields ?? hit.resource.fields;
 }
 
 /** Normalize a search hit to ensure name, webUrl, and fields are accessible.
- *  Handles both driveItem (has name/webUrl) and listItem (has fields only). */
+ *  Graph Search API often returns driveItem resources with only @odata.type
+ *  and listItem — the actual data is in listItem.fields. */
 function normalizeHit(hit: SearchHit, rootUrl?: string): SearchHit {
   const fields = getFields(hit);
 
   // Ensure name exists — fallback to FileLeafRef or Title from fields
   if (!hit.resource.name && fields) {
-    hit.resource.name = fields.FileLeafRef || fields.Title || "";
+    hit.resource.name = fields.FileLeafRef || fields.Title || fields.FileLeafRef || "";
   }
 
   // Ensure webUrl exists — construct from FileRef if available
@@ -98,29 +115,12 @@ function normalizeHit(hit: SearchHit, rootUrl?: string): SearchHit {
     hit.resource.webUrl = `${rootUrl}${fields.FileRef}`;
   }
 
-  // Ensure listItem.fields is populated for downstream code that expects this shape
+  // Ensure listItem.fields is populated for downstream code
   if (!hit.resource.listItem && fields) {
     hit.resource.listItem = { fields };
   }
 
   return hit;
-}
-
-/** Extract the SharePoint root URL (e.g. https://contoso.sharepoint.com)
- *  from any hit that has a webUrl, for constructing URLs on listItem hits. */
-function extractRootUrl(hits: SearchHit[]): string | undefined {
-  for (const hit of hits) {
-    const url = hit.resource.webUrl;
-    if (url) {
-      try {
-        const parsed = new URL(url);
-        return parsed.origin;
-      } catch {
-        continue;
-      }
-    }
-  }
-  return undefined;
 }
 
 export async function searchSharePoint(
@@ -163,8 +163,10 @@ export async function searchSharePoint(
   // Use tenant-specific search fields or defaults
   const searchFields = config?.searchFields ?? [...SEARCH_FIELDS];
 
+  // Get SharePoint root URL for constructing file URLs from server-relative paths
+  const sharePointRoot = getSharePointRoot(msalInstance);
+
   // Step 3: Query SharePoint via Graph Search API
-  // Include both driveItem and listItem to maximize results
   const requestBody = {
     requests: [
       {
@@ -195,57 +197,45 @@ export async function searchSharePoint(
 
   const data: SearchResponse = await response.json();
 
-  // ── DEBUG: Log raw Graph API response ──
-  console.group("[search-debug] Graph API Response");
-  console.log("KQL sent:", queryString);
-  console.log("Raw response containers:", data.value?.[0]?.hitsContainers?.length);
-
   const container = data.value?.[0]?.hitsContainers?.[0];
   if (!container || !container.hits) {
-    console.log("No hits container or empty hits");
-    console.groupEnd();
     return { hits: [], total: 0, moreResultsAvailable: false, intent };
   }
 
-  console.log("Total reported:", container.total);
-  console.log("Hits returned:", container.hits.length);
+  // ── DEBUG: Log raw response + fields content ──
+  console.group("[search-debug] Graph API Response");
+  console.log("KQL:", queryString);
+  console.log("SharePoint root:", sharePointRoot);
+  console.log("Total:", container.total, "| Returned:", container.hits.length);
 
-  // Log first 3 raw hits to see actual structure
   container.hits.slice(0, 3).forEach((hit, i) => {
-    console.group(`[search-debug] Raw hit #${i + 1}`);
-    console.log("hitId:", hit.hitId);
-    console.log("@odata.type:", hit.resource?.["@odata.type"]);
-    console.log("resource.name:", hit.resource?.name);
-    console.log("resource.webUrl:", hit.resource?.webUrl);
-    console.log("resource.size:", hit.resource?.size);
-    console.log("resource.lastModifiedDateTime:", hit.resource?.lastModifiedDateTime);
-    console.log("resource.listItem:", hit.resource?.listItem);
-    console.log("resource.fields:", hit.resource?.fields);
-    console.log("resource (all keys):", Object.keys(hit.resource || {}));
-    console.log("hit (all keys):", Object.keys(hit));
-    console.log("summary:", hit.summary?.slice(0, 100));
-    console.groupEnd();
+    const f = hit.resource.listItem?.fields ?? hit.resource.fields;
+    console.log(`[search-debug] Hit #${i + 1}:`, {
+      hitId: hit.hitId,
+      type: hit.resource?.["@odata.type"],
+      name: hit.resource?.name,
+      webUrl: hit.resource?.webUrl,
+      resourceKeys: Object.keys(hit.resource || {}),
+      fieldsContent: f ? { ...f } : "none",
+      summary: hit.summary?.slice(0, 80),
+    });
   });
   // ── END DEBUG ──
 
-  // Step 4: Normalize hits — handle both driveItem and listItem resource shapes
-  const rootUrl = extractRootUrl(container.hits);
-  console.log("[search-debug] Extracted rootUrl:", rootUrl);
+  // Step 4: Normalize hits — fill in name/webUrl from fields
+  const normalized = container.hits.map((hit) => normalizeHit(hit, sharePointRoot));
 
-  const normalized = container.hits.map((hit) => normalizeHit(hit, rootUrl));
-
-  // Log first 3 normalized hits
+  // Log normalization results
   normalized.slice(0, 3).forEach((hit, i) => {
-    console.log(`[search-debug] Normalized hit #${i + 1}:`, {
+    console.log(`[search-debug] Normalized #${i + 1}:`, {
       name: hit.resource.name,
       webUrl: hit.resource.webUrl,
-      fields: hit.resource.listItem?.fields,
     });
   });
 
-  // Step 5: Deduplicate + Rank (with tenant-specific weights and policies)
+  // Step 5: Deduplicate + Rank
   const deduplicated = deduplicateHits(normalized);
-  console.log("[search-debug] After dedup:", deduplicated.length, "hits (from", normalized.length, ")");
+  console.log("[search-debug] Dedup:", normalized.length, "→", deduplicated.length);
 
   const ranked = rankResults(deduplicated, {
     query: intent.refinedQuery,
@@ -255,7 +245,7 @@ export async function searchSharePoint(
     searchBehaviour: config?.searchBehaviour,
     reviewPolicies: config?.reviewPolicies,
   });
-  console.log("[search-debug] Final ranked results:", ranked.length);
+  console.log("[search-debug] Final:", ranked.length, "results");
   console.groupEnd();
 
   return {
