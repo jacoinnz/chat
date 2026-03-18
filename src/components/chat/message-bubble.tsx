@@ -274,7 +274,7 @@ export function MessageBubble({
                 key={hit.hitId}
                 hit={hit}
                 onPreview={onPreview}
-                isFavorited={favoritedUrls?.has(hit.resource.webUrl)}
+                isFavorited={favoritedUrls?.has(hit.resource.webUrl || "")}
                 onToggleFavorite={onToggleFavorite}
               />
             ))}

@@ -59,7 +59,7 @@ function computeScore(hit: SearchHit, ctx: RankingContext): number {
   }
 
   // Metadata matches active filters
-  const fields = hit.resource.listItem?.fields;
+  const fields = hit.resource.listItem?.fields ?? hit.resource.fields;
   if (fields) {
     if (ctx.filters.department && fields.Department === ctx.filters.department) {
       score += 20;

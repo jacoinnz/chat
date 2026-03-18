@@ -31,10 +31,10 @@ export function DocumentPreviewPanel({ hit, onClose }: DocumentPreviewPanelProps
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const isPage = isSharePointPage(hit);
-  const fileType = isPage ? PAGE_TYPE : getFileTypeInfo(resource.name);
-  const siteName = extractSiteName(resource.webUrl);
-  const folderPath = extractFolderPath(resource.webUrl);
-  const fields = resource.listItem?.fields;
+  const fileType = isPage ? PAGE_TYPE : getFileTypeInfo(resource.name || "");
+  const siteName = extractSiteName(resource.webUrl || "");
+  const folderPath = extractFolderPath(resource.webUrl || "");
+  const fields = resource.listItem?.fields ?? resource.fields;
   const summary = hit.summary ? stripHighlightTags(hit.summary) : "";
   const fileSize = formatFileSize(resource.size);
 
@@ -53,6 +53,7 @@ export function DocumentPreviewPanel({ hit, onClose }: DocumentPreviewPanelProps
   }, []);
 
   const handleOpen = () => {
+    if (!resource.webUrl) return;
     window.open(resource.webUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -90,7 +91,7 @@ export function DocumentPreviewPanel({ hit, onClose }: DocumentPreviewPanelProps
             </Badge>
           </div>
           <h3 className="text-sm font-medium text-[#1a2a3a] break-words">
-            {resource.name}
+            {resource.name || "Untitled"}
           </h3>
         </div>
 

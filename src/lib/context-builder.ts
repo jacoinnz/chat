@@ -7,14 +7,14 @@ const MAX_TURNS = 6;
 
 export function buildDocumentContext(hits: SearchHit[]): DocumentContext[] {
   return hits.slice(0, MAX_DOCUMENTS).map((hit, i) => {
-    const fields = hit.resource.listItem?.fields;
+    const fields = hit.resource.listItem?.fields ?? hit.resource.fields;
     const freshness = assessFreshness(hit);
     const sensitivity = getSensitivityLevel(hit);
 
     return {
       index: i + 1,
-      name: hit.resource.name,
-      webUrl: hit.resource.webUrl,
+      name: hit.resource.name || "Untitled",
+      webUrl: hit.resource.webUrl || "",
       summary: hit.summary ? stripHighlightTags(hit.summary) : "",
       lastModified: hit.resource.lastModifiedDateTime
         ? new Date(hit.resource.lastModifiedDateTime).toLocaleDateString()
@@ -39,7 +39,7 @@ export function buildConversationHistory(
       m.id !== "welcome" &&
       !m.isLoading &&
       !m.isStreaming &&
-      m.content.trim().length > 0
+      (m.content || "").trim().length > 0
   );
 
   const maxMessages = maxTurns * 2;

@@ -1,16 +1,16 @@
 export interface SearchHit {
   hitId: string;
   rank: number;
-  summary: string;
+  summary?: string;
   resource: DriveItemResource;
 }
 
 export interface DriveItemResource {
   "@odata.type": string;
-  name: string;
-  webUrl: string;
-  createdDateTime: string;
-  lastModifiedDateTime: string;
+  name?: string;
+  webUrl?: string;
+  createdDateTime?: string;
+  lastModifiedDateTime?: string;
   size?: number;
   createdBy?: {
     user: { displayName: string };
@@ -27,9 +27,12 @@ export interface DriveItemResource {
       listItemUniqueId?: string;
     };
   };
+  // driveItem shape: nested listItem with fields
   listItem?: {
     fields?: Record<string, string>;
   };
+  // listItem shape: fields directly on resource
+  fields?: Record<string, string>;
 }
 
 export interface SearchResponse {

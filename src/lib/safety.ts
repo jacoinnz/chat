@@ -47,7 +47,7 @@ const VALID_LEVELS: SensitivityLevel[] = [
 
 /** Get the sensitivity level of a search hit */
 export function getSensitivityLevel(hit: SearchHit): SensitivityLevel {
-  const raw = hit.resource.listItem?.fields?.Sensitivity;
+  const raw = (hit.resource.listItem?.fields ?? hit.resource.fields)?.Sensitivity;
   if (raw && VALID_LEVELS.includes(raw as SensitivityLevel)) {
     return raw as SensitivityLevel;
   }
@@ -95,11 +95,13 @@ function findPolicy(contentType: string | undefined, policies: ReviewPolicy[]): 
  *  When reviewPolicies are provided, uses content-type-specific thresholds
  *  instead of the hardcoded 365-day default. */
 export function assessFreshness(hit: SearchHit, reviewPolicies?: ReviewPolicy[]): FreshnessInfo {
-  const fields = hit.resource.listItem?.fields;
+  const fields = hit.resource.listItem?.fields ?? hit.resource.fields;
   const status = fields?.Status;
   const reviewDate = fields?.ReviewDate;
   const contentType = fields?.ContentType;
-  const modifiedDays = daysSince(hit.resource.lastModifiedDateTime);
+  const modifiedDays = hit.resource.lastModifiedDateTime
+    ? daysSince(hit.resource.lastModifiedDateTime)
+    : 0;
 
   // Archived documents
   if (status === "Archived") {

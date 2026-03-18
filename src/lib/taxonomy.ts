@@ -105,6 +105,9 @@ export const SEARCH_FIELDS = [
   "Status",         // Custom: document lifecycle status
   "ReviewDate",     // Custom: next review date
   "Keywords",       // Built-in: enterprise keywords (taxonomy)
+  "FileLeafRef",    // Built-in: filename (for listItem entity fallback)
+  "FileRef",        // Built-in: server-relative URL path
+  "Title",          // Built-in: list item title
 ] as const;
 
 // ── Filter Interface ─────────────────────────────────────────────────

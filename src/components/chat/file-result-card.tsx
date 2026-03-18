@@ -61,10 +61,11 @@ export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }
   const { resource } = hit;
   const isPage = isSharePointPage(hit);
   const name = resource.name || "";
+  const webUrl = resource.webUrl || "";
   const fileType = isPage ? PAGE_TYPE : getFileTypeInfo(name);
-  const siteName = extractSiteName(resource.webUrl || "");
-  const folderPath = extractFolderPath(resource.webUrl || "");
-  const fields = resource.listItem?.fields;
+  const siteName = extractSiteName(webUrl);
+  const folderPath = extractFolderPath(webUrl);
+  const fields = resource.listItem?.fields ?? resource.fields;
   const summary = hit.summary ? stripHighlightTags(hit.summary) : "";
 
   const fileSize = formatFileSize(resource.size);
@@ -80,26 +81,29 @@ export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }
   const [copied, setCopied] = useState(false);
 
   const handleOpen = () => {
-    window.open(resource.webUrl, "_blank", "noopener,noreferrer");
+    if (!webUrl) return;
+    window.open(webUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleDownload = () => {
-    const downloadUrl = resource.webUrl.includes("?")
-      ? `${resource.webUrl}&download=1`
-      : `${resource.webUrl}?download=1`;
+    if (!webUrl) return;
+    const downloadUrl = webUrl.includes("?")
+      ? `${webUrl}&download=1`
+      : `${webUrl}?download=1`;
     window.open(downloadUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleCopyLink = async () => {
+    if (!webUrl) return;
     try {
-      await navigator.clipboard.writeText(resource.webUrl);
+      await navigator.clipboard.writeText(webUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* fallback silently */ }
   };
 
   const handleToggleFavorite = () => {
-    onToggleFavorite?.(resource.webUrl, resource.name, siteName);
+    onToggleFavorite?.(webUrl, name, siteName);
   };
 
   const handlePreview = () => {
@@ -110,7 +114,7 @@ export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }
     <div
       id={`file-card-${hit.hitId}`}
       role="article"
-      aria-label={`File: ${resource.name}`}
+      aria-label={`File: ${name}`}
       className="rounded-md bg-[#f5f5f5] border border-[#e0e0e0] hover:bg-[#eeeeee] transition-all duration-300 overflow-hidden"
     >
       {showWarning && banner && (
@@ -136,7 +140,7 @@ export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               <span className="font-medium text-xs sm:text-sm truncate">
-                {resource.name}
+                {name || "Untitled"}
               </span>
               <Badge
                 variant="secondary"
@@ -230,7 +234,7 @@ export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }
                 variant="default"
                 onClick={handleOpen}
                 className="h-6 text-[10px] sm:text-xs px-2 sm:px-3 bg-[#1976d2] hover:bg-[#0d3b66] text-white border-none"
-                aria-label={`Open ${resource.name}`}
+                aria-label={`Open ${name}`}
               >
                 Open
               </Button>
@@ -239,7 +243,7 @@ export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }
                 variant="outline"
                 onClick={handleDownload}
                 className="h-6 text-[10px] sm:text-xs px-2 sm:px-3 border-[#1976d2] text-[#1976d2] hover:bg-[#1976d2]/10"
-                aria-label={`Download ${resource.name}`}
+                aria-label={`Download ${name}`}
               >
                 Download
               </Button>
@@ -282,7 +286,7 @@ export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }
                   variant="outline"
                   onClick={handlePreview}
                   className="h-6 text-[10px] sm:text-xs px-2 border-[#d0d8e0] text-[#667781] hover:bg-[#f0f2f5]"
-                  aria-label={`Preview ${resource.name}`}
+                  aria-label={`Preview ${name}`}
                 >
                   <Eye className="h-3 w-3" />
                 </Button>

@@ -76,6 +76,53 @@ export function buildIntentKql(intent: IntentResult, filters: MetadataFilters): 
   return parts.join(" AND ");
 }
 
+/** Get the fields object from a search hit regardless of entity type.
+ *  driveItem: resource.listItem.fields
+ *  listItem: resource.fields (fields directly on resource) */
+function getFields(hit: SearchHit): Record<string, string> | undefined {
+  return hit.resource.listItem?.fields ?? hit.resource.fields;
+}
+
+/** Normalize a search hit to ensure name, webUrl, and fields are accessible.
+ *  Handles both driveItem (has name/webUrl) and listItem (has fields only). */
+function normalizeHit(hit: SearchHit, rootUrl?: string): SearchHit {
+  const fields = getFields(hit);
+
+  // Ensure name exists — fallback to FileLeafRef or Title from fields
+  if (!hit.resource.name && fields) {
+    hit.resource.name = fields.FileLeafRef || fields.Title || "";
+  }
+
+  // Ensure webUrl exists — construct from FileRef if available
+  if (!hit.resource.webUrl && fields?.FileRef && rootUrl) {
+    hit.resource.webUrl = `${rootUrl}${fields.FileRef}`;
+  }
+
+  // Ensure listItem.fields is populated for downstream code that expects this shape
+  if (!hit.resource.listItem && fields) {
+    hit.resource.listItem = { fields };
+  }
+
+  return hit;
+}
+
+/** Extract the SharePoint root URL (e.g. https://contoso.sharepoint.com)
+ *  from any hit that has a webUrl, for constructing URLs on listItem hits. */
+function extractRootUrl(hits: SearchHit[]): string | undefined {
+  for (const hit of hits) {
+    const url = hit.resource.webUrl;
+    if (url) {
+      try {
+        const parsed = new URL(url);
+        return parsed.origin;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return undefined;
+}
+
 export async function searchSharePoint(
   msalInstance: IPublicClientApplication,
   query: string,
@@ -108,14 +155,20 @@ export async function searchSharePoint(
   const kqlParts = [safeQuery, filterKql, intentKql].filter(Boolean);
   const queryString = kqlParts.join(" ");
 
+  // Guard against empty queries
+  if (!queryString.trim()) {
+    return { hits: [], total: 0, moreResultsAvailable: false, intent };
+  }
+
   // Use tenant-specific search fields or defaults
   const searchFields = config?.searchFields ?? [...SEARCH_FIELDS];
 
   // Step 3: Query SharePoint via Graph Search API
+  // Include both driveItem and listItem to maximize results
   const requestBody = {
     requests: [
       {
-        entityTypes: ["driveItem"],
+        entityTypes: ["driveItem", "listItem"],
         query: {
           queryString,
         },
@@ -147,17 +200,12 @@ export async function searchSharePoint(
     return { hits: [], total: 0, moreResultsAvailable: false, intent };
   }
 
-  // Step 4: Filter out hits with no usable URL (e.g. listItem entities without webUrl)
-  const validHits = container.hits.filter(
-    (hit) => hit.resource?.webUrl
-  );
-
-  if (validHits.length === 0) {
-    return { hits: [], total: 0, moreResultsAvailable: false, intent };
-  }
+  // Step 4: Normalize hits — handle both driveItem and listItem resource shapes
+  const rootUrl = extractRootUrl(container.hits);
+  const normalized = container.hits.map((hit) => normalizeHit(hit, rootUrl));
 
   // Step 5: Deduplicate + Rank (with tenant-specific weights and policies)
-  const deduplicated = deduplicateHits(validHits);
+  const deduplicated = deduplicateHits(normalized);
   const ranked = rankResults(deduplicated, {
     query: intent.refinedQuery,
     intent: intent.intent,
