@@ -40,7 +40,7 @@ const DEFAULT_FILE_TYPE = {
 };
 
 export function getFileExtension(filename: string): string {
-  return filename.split(".").pop()?.toLowerCase() || "";
+  return (filename || "").split(".").pop()?.toLowerCase() || "";
 }
 
 export function getFileTypeInfo(filename: string) {

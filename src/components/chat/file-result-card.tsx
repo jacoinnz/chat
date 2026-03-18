@@ -60,9 +60,10 @@ const PAGE_TYPE = {
 export function FileResultCard({ hit, onPreview, isFavorited, onToggleFavorite }: FileResultCardProps) {
   const { resource } = hit;
   const isPage = isSharePointPage(hit);
-  const fileType = isPage ? PAGE_TYPE : getFileTypeInfo(resource.name);
-  const siteName = extractSiteName(resource.webUrl);
-  const folderPath = extractFolderPath(resource.webUrl);
+  const name = resource.name || "";
+  const fileType = isPage ? PAGE_TYPE : getFileTypeInfo(name);
+  const siteName = extractSiteName(resource.webUrl || "");
+  const folderPath = extractFolderPath(resource.webUrl || "");
   const fields = resource.listItem?.fields;
   const summary = hit.summary ? stripHighlightTags(hit.summary) : "";
 
