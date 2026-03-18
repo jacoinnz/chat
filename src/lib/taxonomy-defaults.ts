@@ -28,6 +28,15 @@ export const DEFAULT_KQL_PROPERTY_MAP: Record<string, string> = {
 };
 
 export const DEFAULT_SEARCH_FIELDS = [
+  "Path",
+  "Filename",
+  "FileExtension",
+  "Title",
+  "Author",
+  "LastModifiedTime",
+  "Created",
+  "Size",
+  "SPWebUrl",
   "ContentType",
   "Department",
   "Sensitivity",
@@ -88,7 +97,7 @@ export interface SearchBehaviour {
 export const DEFAULT_SEARCH_BEHAVIOUR: SearchBehaviour = {
   approvedOnly: false,
   hideRestricted: false,
-  maxResults: 15,
+  maxResults: 25,
   recencyBoostDays: 30,
   recencyWeight: 1,
   matchWeight: 1,

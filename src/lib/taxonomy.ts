@@ -99,15 +99,23 @@ export const TAXONOMY = {
 // Names must match SharePoint site column internal names (PascalCase).
 
 export const SEARCH_FIELDS = [
-  "ContentType",    // Built-in: SharePoint content type
-  "Department",     // Custom: organisational department
-  "Sensitivity",    // Custom: data classification level
-  "Status",         // Custom: document lifecycle status
-  "ReviewDate",     // Custom: next review date
-  "Keywords",       // Built-in: enterprise keywords (taxonomy)
-  "FileLeafRef",    // Built-in: filename (for listItem entity fallback)
-  "FileRef",        // Built-in: server-relative URL path
-  "Title",          // Built-in: list item title
+  // Built-in search managed properties (always available in SharePoint Online)
+  "Path",             // Full URL to the document
+  "Filename",         // File name with extension
+  "FileExtension",    // Extension only (e.g. "docx")
+  "Title",            // List item title
+  "Author",           // Author display name
+  "LastModifiedTime", // Modified ISO datetime
+  "Created",          // Created ISO datetime
+  "Size",             // File size in bytes
+  "SPWebUrl",         // SharePoint site URL
+  "ContentType",      // SharePoint content type
+  // Custom managed properties (require tenant site columns)
+  "Department",
+  "Sensitivity",
+  "Status",
+  "ReviewDate",
+  "Keywords",
 ] as const;
 
 // ── Filter Interface ─────────────────────────────────────────────────

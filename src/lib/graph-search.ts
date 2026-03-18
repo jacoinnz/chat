@@ -1,7 +1,7 @@
 import { IPublicClientApplication } from "@azure/msal-browser";
 import { graphScopes } from "./msal-config";
 import { buildKqlFilter, SEARCH_FIELDS, type MetadataFilters, type TenantTaxonomyConfig } from "./taxonomy";
-import { deduplicateHits } from "./content-prep";
+import { deduplicateHits, stripHighlightTags } from "./content-prep";
 import { analyzeIntent, type IntentResult } from "./intent";
 import { rankResults } from "./ranking";
 import { sanitizeForKql } from "./safety";
@@ -94,9 +94,20 @@ export function buildIntentKql(intent: IntentResult, filters: MetadataFilters): 
 }
 
 /** Get the fields object from a search hit regardless of entity type.
- *  Graph API nests fields at resource.listItem.fields for driveItem results. */
+ *  Graph API nests fields at resource.listItem.fields for driveItem results.
+ *  Normalizes keys to PascalCase since Graph returns camelCase. */
 function getFields(hit: SearchHit): Record<string, string> | undefined {
-  return hit.resource.listItem?.fields ?? hit.resource.fields;
+  const raw = hit.resource.listItem?.fields ?? hit.resource.fields;
+  if (!raw) return undefined;
+  // Graph returns camelCase keys (e.g. "contentType") but our display code
+  // expects PascalCase ("ContentType"). Add PascalCase aliases.
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    normalized[key] = value;
+    const pascal = key.charAt(0).toUpperCase() + key.slice(1);
+    if (pascal !== key) normalized[pascal] = value;
+  }
+  return normalized;
 }
 
 /** Map MIME types to file extensions for display when name is missing */
@@ -125,40 +136,54 @@ function extractExtFromContentType(ct?: string): string | undefined {
 
 /** Normalize a search hit to ensure name, webUrl, and fields are accessible.
  *  Graph Search API returns driveItem resources with only @odata.type and
- *  listItem — no name/webUrl/size. We reconstruct from available data. */
+ *  listItem — no name/webUrl/size. We reconstruct from managed properties. */
 function normalizeHit(hit: SearchHit, rootUrl?: string): SearchHit {
   const fields = getFields(hit);
-  const listItemId = hit.resource.listItem?.id;
 
-  // Construct webUrl from listItem GUID via SharePoint Doc.aspx handler
-  if (!hit.resource.webUrl && listItemId && rootUrl) {
-    hit.resource.webUrl = `${rootUrl}/_layouts/15/Doc.aspx?sourcedoc=%7B${listItemId}%7D&action=default`;
+  // ── webUrl: use Path managed property (full document URL) ──
+  if (!hit.resource.webUrl) {
+    const pathUrl = fields?.Path;
+    if (pathUrl) {
+      hit.resource.webUrl = pathUrl;
+    }
   }
 
-  // Construct webUrl from FileRef as fallback
-  if (!hit.resource.webUrl && fields?.FileRef && rootUrl) {
-    hit.resource.webUrl = `${rootUrl}${fields.FileRef}`;
-  }
-
-  // Build a display name from available data
+  // ── name: use Filename managed property ──
   if (!hit.resource.name) {
-    if (fields?.FileLeafRef) {
-      hit.resource.name = fields.FileLeafRef;
+    if (fields?.Filename) {
+      hit.resource.name = fields.Filename;
     } else if (fields?.Title) {
       hit.resource.name = fields.Title;
     } else {
-      // Derive name from MIME type + summary
-      const ext = extractExtFromContentType(fields?.contentType);
-      const summarySnippet = hit.summary?.slice(0, 60)?.split(/[.\n]/)[0]?.trim();
+      // Derive from file extension + summary snippet (strip HTML tags first)
+      const ext = fields?.FileExtension || extractExtFromContentType(fields?.ContentType);
+      const cleanSummary = hit.summary ? stripHighlightTags(hit.summary) : "";
+      const summarySnippet = cleanSummary.slice(0, 60)?.split(/[.\n]/)[0]?.trim();
       hit.resource.name = summarySnippet
         ? `${summarySnippet}${ext ? `.${ext}` : ""}`
         : ext ? `Document.${ext}` : "";
     }
   }
 
+  // ── Fill in missing standard properties from managed properties ──
+  if (!hit.resource.lastModifiedDateTime && fields?.LastModifiedTime) {
+    hit.resource.lastModifiedDateTime = fields.LastModifiedTime;
+  }
+  if (!hit.resource.createdDateTime && fields?.Created) {
+    hit.resource.createdDateTime = fields.Created;
+  }
+  if (!hit.resource.size && fields?.Size) {
+    hit.resource.size = parseInt(fields.Size, 10) || undefined;
+  }
+  if (!hit.resource.lastModifiedBy?.user?.displayName && fields?.Author) {
+    hit.resource.lastModifiedBy = { user: { displayName: fields.Author } };
+  }
+
   // Ensure listItem.fields is populated for downstream code
   if (!hit.resource.listItem && fields) {
     hit.resource.listItem = { fields };
+  } else if (hit.resource.listItem && fields) {
+    hit.resource.listItem.fields = fields;
   }
 
   return hit;
@@ -168,7 +193,7 @@ export async function searchSharePoint(
   msalInstance: IPublicClientApplication,
   query: string,
   filters?: MetadataFilters,
-  pageSize: number = 15,
+  pageSize: number = 25,
   config?: TenantTaxonomyConfig
 ): Promise<{
   hits: SearchHit[];
