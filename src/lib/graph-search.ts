@@ -195,17 +195,58 @@ export async function searchSharePoint(
 
   const data: SearchResponse = await response.json();
 
+  // ── DEBUG: Log raw Graph API response ──
+  console.group("[search-debug] Graph API Response");
+  console.log("KQL sent:", queryString);
+  console.log("Raw response containers:", data.value?.[0]?.hitsContainers?.length);
+
   const container = data.value?.[0]?.hitsContainers?.[0];
   if (!container || !container.hits) {
+    console.log("No hits container or empty hits");
+    console.groupEnd();
     return { hits: [], total: 0, moreResultsAvailable: false, intent };
   }
 
+  console.log("Total reported:", container.total);
+  console.log("Hits returned:", container.hits.length);
+
+  // Log first 3 raw hits to see actual structure
+  container.hits.slice(0, 3).forEach((hit, i) => {
+    console.group(`[search-debug] Raw hit #${i + 1}`);
+    console.log("hitId:", hit.hitId);
+    console.log("@odata.type:", hit.resource?.["@odata.type"]);
+    console.log("resource.name:", hit.resource?.name);
+    console.log("resource.webUrl:", hit.resource?.webUrl);
+    console.log("resource.size:", hit.resource?.size);
+    console.log("resource.lastModifiedDateTime:", hit.resource?.lastModifiedDateTime);
+    console.log("resource.listItem:", hit.resource?.listItem);
+    console.log("resource.fields:", hit.resource?.fields);
+    console.log("resource (all keys):", Object.keys(hit.resource || {}));
+    console.log("hit (all keys):", Object.keys(hit));
+    console.log("summary:", hit.summary?.slice(0, 100));
+    console.groupEnd();
+  });
+  // ── END DEBUG ──
+
   // Step 4: Normalize hits — handle both driveItem and listItem resource shapes
   const rootUrl = extractRootUrl(container.hits);
+  console.log("[search-debug] Extracted rootUrl:", rootUrl);
+
   const normalized = container.hits.map((hit) => normalizeHit(hit, rootUrl));
+
+  // Log first 3 normalized hits
+  normalized.slice(0, 3).forEach((hit, i) => {
+    console.log(`[search-debug] Normalized hit #${i + 1}:`, {
+      name: hit.resource.name,
+      webUrl: hit.resource.webUrl,
+      fields: hit.resource.listItem?.fields,
+    });
+  });
 
   // Step 5: Deduplicate + Rank (with tenant-specific weights and policies)
   const deduplicated = deduplicateHits(normalized);
+  console.log("[search-debug] After dedup:", deduplicated.length, "hits (from", normalized.length, ")");
+
   const ranked = rankResults(deduplicated, {
     query: intent.refinedQuery,
     intent: intent.intent,
@@ -214,6 +255,8 @@ export async function searchSharePoint(
     searchBehaviour: config?.searchBehaviour,
     reviewPolicies: config?.reviewPolicies,
   });
+  console.log("[search-debug] Final ranked results:", ranked.length);
+  console.groupEnd();
 
   return {
     hits: ranked,
