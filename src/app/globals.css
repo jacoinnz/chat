@@ -107,6 +107,12 @@ select:focus-visible,
   border-radius: 2px;
 }
 
+/* Toast slide-in animation */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(1rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 /* WhatsApp-style wallpaper pattern */
 .wa-chat-bg {
   background-color: #e8eef4;

@@ -1,25 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useMsal } from "@azure/msal-react";
 import { graphScopes } from "@/lib/msal-config";
+import { useTokenAcquisition } from "@/hooks/use-token";
 
 // ── Token acquisition ────────────────────────────────────────────────
 
 function useUserToken() {
-  const { instance } = useMsal();
-
-  const getToken = useCallback(async () => {
-    const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
-    if (!account) throw new Error("No account");
-    const response = await instance.acquireTokenSilent({
-      scopes: graphScopes.search,
-      account,
-    });
-    return response.accessToken;
-  }, [instance]);
-
-  return { getToken };
+  return useTokenAcquisition(graphScopes.search);
 }
 
 // ── Saved Queries ────────────────────────────────────────────────────

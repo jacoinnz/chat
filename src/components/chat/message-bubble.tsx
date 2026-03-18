@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, ThumbsUp, ThumbsDown, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ThumbsUp, ThumbsDown, Sparkles, ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 import { FileResultCard } from "./file-result-card";
 import { NoResultsState } from "./no-results-state";
 import { ErrorState } from "./error-state";
@@ -17,6 +17,7 @@ interface MessageBubbleProps {
 }
 
 const COLLAPSE_THRESHOLD = 500;
+const RESULTS_PAGE_SIZE = 5;
 
 function CitedText({
   content,
@@ -157,6 +158,7 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const [expanded, setExpanded] = useState(false);
+  const [visibleResults, setVisibleResults] = useState(RESULTS_PAGE_SIZE);
 
   const timestamp = message.timestamp.toLocaleTimeString([], {
     hour: "2-digit",
@@ -266,7 +268,7 @@ export function MessageBubble({
 
         {message.results && message.results.length > 0 && (
           <div className="mt-2 space-y-1.5">
-            {message.results.map((hit) => (
+            {message.results.slice(0, visibleResults).map((hit) => (
               <FileResultCard
                 key={hit.hitId}
                 hit={hit}
@@ -275,6 +277,16 @@ export function MessageBubble({
                 onToggleFavorite={onToggleFavorite}
               />
             ))}
+            {message.results.length > visibleResults && (
+              <button
+                type="button"
+                onClick={() => setVisibleResults((v) => v + RESULTS_PAGE_SIZE)}
+                className="flex items-center justify-center gap-1.5 w-full py-2 text-xs text-[#1976d2] hover:text-[#0d3b66] font-medium bg-[#f0f2f5] hover:bg-[#e8eef4] rounded-lg transition-colors"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+                Show more results ({message.results.length - visibleResults} remaining)
+              </button>
+            )}
           </div>
         )}
 

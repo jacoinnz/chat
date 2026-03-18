@@ -1,9 +1,13 @@
 import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { buildSystemPrompt } from "@/lib/prompts";
+import { applyRateLimit } from "@/lib/rate-limit";
 import type { ChatApiRequest } from "@/types/search";
 
 export async function POST(request: Request) {
+  const rateLimited = applyRateLimit(request, "search");
+  if (rateLimited) return rateLimited;
+
   try {
     const body: ChatApiRequest = await request.json();
 

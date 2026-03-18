@@ -18,6 +18,7 @@ import {
   Flag,
   Upload,
   Activity,
+  Shield,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -53,6 +54,7 @@ const NAV_SECTIONS = [
       { href: "/admin/roles", label: "Role Management", icon: UserCog },
       { href: "/admin/feature-flags", label: "Feature Flags", icon: Flag },
       { href: "/admin/bulk", label: "Import / Export", icon: Upload },
+      { href: "/admin/audit-logs", label: "Audit Logs", icon: Shield },
     ],
   },
 ];

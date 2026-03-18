@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
-import { useMsal } from "@azure/msal-react";
-import { graphScopes } from "@/lib/msal-config";
 import { ShieldAlert, Loader2 } from "lucide-react";
+import { useTokenAcquisition } from "@/hooks/use-token";
+import { graphScopes } from "@/lib/msal-config";
 
 interface AdminAuthGuardProps {
   children: ReactNode;
 }
 
 export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
-  const { instance } = useMsal();
+  const { getToken } = useTokenAcquisition(graphScopes.admin);
   const [status, setStatus] = useState<"loading" | "authorized" | "denied">("loading");
 
   useEffect(() => {
@@ -18,31 +18,14 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
 
     async function checkAdmin() {
       try {
-        const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
-        if (!account) {
-          setStatus("denied");
-          return;
-        }
-
-        // Acquire token with Directory.Read.All scope
-        let tokenResponse;
-        try {
-          tokenResponse = await instance.acquireTokenSilent({
-            scopes: graphScopes.admin,
-            account,
-          });
-        } catch {
-          tokenResponse = await instance.acquireTokenPopup({
-            scopes: graphScopes.admin,
-          });
-        }
+        const accessToken = await getToken();
 
         // Check admin role via Graph API
         const response = await fetch(
           "https://graph.microsoft.com/v1.0/me/memberOf",
           {
             headers: {
-              Authorization: `Bearer ${tokenResponse.accessToken}`,
+              Authorization: `Bearer ${accessToken}`,
             },
           }
         );
@@ -73,7 +56,7 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
 
     checkAdmin();
     return () => { cancelled = true; };
-  }, [instance]);
+  }, [getToken]);
 
   if (status === "loading") {
     return (

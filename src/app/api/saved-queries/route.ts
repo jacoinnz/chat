@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { extractTenantInfo } from "@/lib/admin-auth";
+import { applyRateLimit } from "@/lib/rate-limit";
 import { validateBody, savedQueryCreateSchema, savedQueryDeleteSchema } from "@/lib/validations";
 
 const MAX_SAVED_QUERIES = 50;
 
 export async function GET(request: Request) {
+  const rateLimited = applyRateLimit(request, "userData");
+  if (rateLimited) return rateLimited;
   const info = await extractTenantInfo(request);
   if (!info) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,6 +25,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const rateLimited = applyRateLimit(request, "userData");
+  if (rateLimited) return rateLimited;
+
   const info = await extractTenantInfo(request);
   if (!info) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

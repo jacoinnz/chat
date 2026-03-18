@@ -1,25 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useMsal } from "@azure/msal-react";
 import { graphScopes } from "@/lib/msal-config";
+import { useToast } from "@/components/ui/toast";
+import { useTokenAcquisition } from "@/hooks/use-token";
 
 // ── Shared token acquisition ────────────────────────────────────────
 
 export function useAdminToken() {
-  const { instance } = useMsal();
-
-  const getToken = useCallback(async () => {
-    const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
-    if (!account) throw new Error("No account");
-    const response = await instance.acquireTokenSilent({
-      scopes: graphScopes.admin,
-      account,
-    });
-    return response.accessToken;
-  }, [instance]);
-
-  return { getToken };
+  return useTokenAcquisition(graphScopes.admin);
 }
 
 // ── Generic read-only fetch ─────────────────────────────────────────
@@ -77,6 +66,7 @@ export function useAdminSave() {
   const { getToken } = useAdminToken();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+  const toasts = useToast();
 
   const save = useCallback(
     async (
@@ -98,19 +88,23 @@ export function useAdminSave() {
         });
         if (response.ok) {
           setMessage({ type: "success", text: successMsg });
+          toasts.success(successMsg);
           return true;
         }
         const data = await response.json().catch(() => ({}));
-        setMessage({ type: "error", text: data.error || "Failed to save" });
+        const errMsg = data.error || "Failed to save";
+        setMessage({ type: "error", text: errMsg });
+        toasts.error(errMsg);
         return false;
       } catch {
         setMessage({ type: "error", text: "Failed to save" });
+        toasts.error("Failed to save");
         return false;
       } finally {
         setSaving(false);
       }
     },
-    [getToken]
+    [getToken, toasts]
   );
 
   const clearMessage = useCallback(() => setMessage(null), []);
@@ -138,6 +132,7 @@ export function useAdminConfig<T>(
   const [draftInfo, setDraftInfo] = useState<DraftInfo | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
   const { save: doSave, saving, message, setMessage, clearMessage } = useAdminSave();
+  const toasts = useToast();
 
   // Store full config ref for draft snapshots
   const fullConfigRef = useRef<Record<string, unknown> | null>(null);
@@ -193,7 +188,6 @@ export function useAdminConfig<T>(
   const saveAsDraft = useCallback(async () => {
     try {
       const token = await getToken();
-      // Build snapshot with current edits
       const snapshot = {
         ...fullConfigRef.current,
         [section]: data,
@@ -208,14 +202,17 @@ export function useAdminConfig<T>(
       });
       if (response.ok) {
         setMessage({ type: "success", text: "Saved as draft" });
+        toasts.success("Saved as draft");
         setHasDraft(true);
       } else {
         setMessage({ type: "error", text: "Failed to save draft" });
+        toasts.error("Failed to save draft");
       }
     } catch {
       setMessage({ type: "error", text: "Failed to save draft" });
+      toasts.error("Failed to save draft");
     }
-  }, [getToken, section, data, setMessage]);
+  }, [getToken, section, data, setMessage, toasts]);
 
   const publishDraft = useCallback(async () => {
     try {
@@ -229,15 +226,18 @@ export function useAdminConfig<T>(
       });
       if (response.ok) {
         setMessage({ type: "success", text: "Draft published successfully" });
+        toasts.success("Draft published successfully");
         setHasDraft(false);
         setDraftInfo(null);
       } else {
         setMessage({ type: "error", text: "Failed to publish draft" });
+        toasts.error("Failed to publish draft");
       }
     } catch {
       setMessage({ type: "error", text: "Failed to publish draft" });
+      toasts.error("Failed to publish draft");
     }
-  }, [getToken, setMessage]);
+  }, [getToken, setMessage, toasts]);
 
   const discardDraft = useCallback(async () => {
     try {
@@ -248,22 +248,26 @@ export function useAdminConfig<T>(
       });
       if (response.ok) {
         setMessage({ type: "success", text: "Draft discarded" });
+        toasts.info("Draft discarded");
         setHasDraft(false);
         setDraftInfo(null);
       } else {
         setMessage({ type: "error", text: "Failed to discard draft" });
+        toasts.error("Failed to discard draft");
       }
     } catch {
       setMessage({ type: "error", text: "Failed to discard draft" });
+      toasts.error("Failed to discard draft");
     }
-  }, [getToken, setMessage]);
+  }, [getToken, setMessage, toasts]);
 
   const reset = useCallback(
     (defaults: T) => {
       setData(defaults);
       setMessage({ type: "success", text: "Reset to defaults (save to apply)" });
+      toasts.info("Reset to defaults (save to apply)");
     },
-    [setMessage]
+    [setMessage, toasts]
   );
 
   return {
