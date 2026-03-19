@@ -38,10 +38,9 @@ export default function OnboardingPage() {
   const { instance } = useMsal();
   const { getToken } = useTokenAcquisition(graphScopes.admin);
 
-  const initialStep = Math.min(
-    Math.max(Number(searchParams.get("step") || "1"), 1),
-    4
-  );
+  // Auto-advance to step 2 when returning from Azure AD admin consent
+  const adminConsent = searchParams.get("admin_consent");
+  const initialStep = adminConsent === "True" ? 2 : 1;
   const [step, setStep] = useState(initialStep);
 
   return (
@@ -156,7 +155,7 @@ function Step1AdminConsent({
   const clientId = process.env.NEXT_PUBLIC_AZURE_CLIENT_ID;
 
   const handleConsent = () => {
-    const redirectUri = `${window.location.origin}/onboarding?step=2`;
+    const redirectUri = `${window.location.origin}/onboarding`;
     window.location.href =
       `https://login.microsoftonline.com/${tenantId}/adminconsent` +
       `?client_id=${clientId}` +
