@@ -37,6 +37,7 @@ export default function OnboardingPage() {
   const searchParams = useSearchParams();
   const { instance } = useMsal();
   const { getToken } = useTokenAcquisition(graphScopes.admin);
+  const { getToken: getSearchToken } = useTokenAcquisition(graphScopes.search);
 
   // Auto-advance to step 2 when returning from Azure AD admin consent
   const adminConsent = searchParams.get("admin_consent");
@@ -122,6 +123,7 @@ export default function OnboardingPage() {
         {step === 2 && (
           <Step2SchemaDiscovery
             getToken={getToken}
+            getSearchToken={getSearchToken}
             onNext={() => setStep(3)}
             onBack={() => setStep(1)}
           />
@@ -129,6 +131,7 @@ export default function OnboardingPage() {
         {step === 3 && (
           <Step3PropertyMapping
             getToken={getToken}
+            getSearchToken={getSearchToken}
             onNext={() => setStep(4)}
             onBack={() => setStep(2)}
           />
@@ -203,10 +206,12 @@ function Step1AdminConsent({
 
 function Step2SchemaDiscovery({
   getToken,
+  getSearchToken,
   onNext,
   onBack,
 }: {
   getToken: () => Promise<string>;
+  getSearchToken: () => Promise<string>;
   onNext: () => void;
   onBack: () => void;
 }) {
@@ -221,9 +226,13 @@ function Step2SchemaDiscovery({
     setErrorMsg("");
     try {
       const token = await getToken();
+      const searchToken = await getSearchToken();
       const res = await fetch("/api/admin/search-schema", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-SharePoint-Token": searchToken,
+        },
       });
 
       if (!res.ok) {
@@ -330,10 +339,12 @@ const DEFAULT_REFINABLE_PROPS = [
 
 function Step3PropertyMapping({
   getToken,
+  getSearchToken,
   onNext,
   onBack,
 }: {
   getToken: () => Promise<string>;
+  getSearchToken: () => Promise<string>;
   onNext: () => void;
   onBack: () => void;
 }) {
@@ -349,8 +360,12 @@ function Step3PropertyMapping({
   const loadProperties = useCallback(async () => {
     try {
       const token = await getToken();
+      const searchToken = await getSearchToken();
       const res = await fetch("/api/admin/search-schema", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-SharePoint-Token": searchToken,
+        },
       });
       if (res.ok) {
         const data = await res.json();

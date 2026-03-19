@@ -38,10 +38,11 @@ export async function GET(request: Request) {
       }
     }
 
-    // Scrape fresh data
-    const token =
-      request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
-    const result = await scrapeAndStore(tenantId, token);
+    // Scrape fresh data — prefer X-SharePoint-Token (has Sites.Read.All) over admin token
+    const spToken = request.headers.get("x-sharepoint-token")
+      || request.headers.get("authorization")?.replace("Bearer ", "")
+      || "";
+    const result = await scrapeAndStore(tenantId, spToken);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -63,9 +64,11 @@ export async function POST(request: Request) {
   const { tenantId } = auth;
 
   try {
-    const token =
-      request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
-    const result = await scrapeAndStore(tenantId, token);
+    // Prefer X-SharePoint-Token (has Sites.Read.All) over admin token
+    const spToken = request.headers.get("x-sharepoint-token")
+      || request.headers.get("authorization")?.replace("Bearer ", "")
+      || "";
+    const result = await scrapeAndStore(tenantId, spToken);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

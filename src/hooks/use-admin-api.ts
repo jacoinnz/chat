@@ -16,7 +16,7 @@ export function useAdminToken() {
 export function useAdminFetch<T>(
   endpoint: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config JSON shape varies per endpoint
-  options?: { parser?: (data: any) => T; params?: Record<string, string> }
+  options?: { parser?: (data: any) => T; params?: Record<string, string>; extraHeaders?: () => Promise<Record<string, string>> }
 ) {
   const { getToken } = useAdminToken();
   const [data, setData] = useState<T | null>(null);
@@ -26,6 +26,8 @@ export function useAdminFetch<T>(
   // Stabilise options across renders
   const parserRef = useRef(options?.parser);
   parserRef.current = options?.parser;
+  const extraHeadersRef = useRef(options?.extraHeaders);
+  extraHeadersRef.current = options?.extraHeaders;
 
   const paramsStr = options?.params
     ? "?" + new URLSearchParams(options.params).toString()
@@ -36,8 +38,9 @@ export function useAdminFetch<T>(
     setError(null);
     try {
       const token = await getToken();
+      const extra = extraHeadersRef.current ? await extraHeadersRef.current() : {};
       const response = await fetch(`${endpoint}${paramsStr}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, ...extra },
       });
       if (response.ok) {
         const json = await response.json();
