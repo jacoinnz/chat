@@ -6,11 +6,12 @@ import { ShieldAlert, Loader2 } from "lucide-react";
 import { useTokenAcquisition } from "@/hooks/use-token";
 import { graphScopes } from "@/lib/msal-config";
 
-interface AdminAuthGuardProps {
+interface OnboardingGuardProps {
   children: ReactNode;
 }
 
-export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
+/** Admin role check without config-exists redirect (avoids redirect loop on /onboarding). */
+export function OnboardingGuard({ children }: OnboardingGuardProps) {
   const { getToken } = useTokenAcquisition(graphScopes.admin);
   const [status, setStatus] = useState<"loading" | "authorized" | "denied">("loading");
 
@@ -21,14 +22,9 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
       try {
         const accessToken = await getToken();
 
-        // Check admin role via Graph API
         const response = await fetch(
           "https://graph.microsoft.com/v1.0/me/memberOf",
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${accessToken}` } }
         );
 
         if (!response.ok) {
@@ -49,28 +45,7 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
             adminRoleIds.includes(role.roleTemplateId)
         );
 
-        if (!isAdmin) {
-          if (!cancelled) setStatus("denied");
-          return;
-        }
-
-        // Check if tenant has existing config — redirect first-time admins to onboarding
-        try {
-          const configRes = await fetch("/api/admin/config/exists", {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-          if (configRes.ok) {
-            const { exists } = await configRes.json();
-            if (!exists) {
-              window.location.href = "/onboarding";
-              return;
-            }
-          }
-        } catch {
-          // Config check failed — proceed to admin portal rather than block access
-        }
-
-        if (!cancelled) setStatus("authorized");
+        if (!cancelled) setStatus(isAdmin ? "authorized" : "denied");
       } catch {
         if (!cancelled) setStatus("denied");
       }
@@ -101,7 +76,7 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
           </h1>
           <p className="text-sm text-[#667781] mb-6">
             You need Global Administrator or SharePoint Administrator role to
-            access the admin portal.
+            access the setup wizard.
           </p>
           <Link
             href="/"
