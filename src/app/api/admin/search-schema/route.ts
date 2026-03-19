@@ -82,144 +82,110 @@ export async function POST(request: Request) {
 
 // ── Internal ──────────────────────────────────────────────────────────
 
-interface ManagedPropertyResult {
-  ManagedPropertyName: string;
-  ManagedPropertyType: string;
-  Searchable: boolean;
-  Queryable: boolean;
-  Retrievable: boolean;
-  Refinable: string; // "Yes" | "No" | "active" | "latent" etc.
-  Mappings?: string;
+interface DiscoveredColumn {
+  name: string;
+  displayName: string;
+  type: string;
+  indexed: boolean;
+  readOnly: boolean;
 }
 
-async function getSharePointRoot(token: string): Promise<string> {
-  const response = await fetch(
-    "https://graph.microsoft.com/v1.0/sites/root",
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  if (!response.ok) {
-    throw new Error(`Failed to get SharePoint root: ${response.status}`);
-  }
-  const data = await response.json();
-  // data.webUrl is like "https://contoso.sharepoint.com"
-  return data.webUrl;
-}
-
-async function fetchManagedProperties(
-  spRoot: string,
-  token: string
-): Promise<ManagedPropertyResult[]> {
-  // SharePoint REST API for managed properties
-  const url = `${spRoot}/_api/search/query?querytext='*'&properties='EnableQueryRules:false'&selectproperties='ManagedPropertyName,ManagedPropertyType,Searchable,Queryable,Retrievable,Refinable,Mappings'&sourceid='8413cd39-2156-4e00-b54d-11efd9abdb89'`;
-
-  // Fall back to the search schema endpoint
-  const schemaUrl = `${spRoot}/_api/search/schema/managedproperties?$filter=Queryable%20eq%20true&$top=500`;
-
-  const response = await fetch(schemaUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json;odata=verbose",
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(
-      `SharePoint schema API failed (${response.status}): ${text.slice(0, 200)}`
-    );
-  }
-
-  const data = await response.json();
-
-  // SharePoint REST API returns results in d.results (OData verbose) or value
-  const results =
-    data.d?.results ?? data.value ?? [];
-
-  return results.map(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (p: any) => ({
-      ManagedPropertyName: p.ManagedPropertyName ?? p.Name ?? p.name ?? "",
-      ManagedPropertyType: mapType(p.ManagedPropertyType ?? p.Type ?? 0),
-      Searchable: Boolean(p.Searchable ?? p.searchable ?? false),
-      Queryable: Boolean(p.Queryable ?? p.queryable ?? true),
-      Retrievable: Boolean(p.Retrievable ?? p.retrievable ?? false),
-      Refinable:
-        typeof p.Refinable === "string"
-          ? p.Refinable
-          : p.Refiner ?? (p.refinable ? "Yes" : "No"),
-      Mappings: formatMappings(p.Mappings ?? p.mappings),
-    })
-  );
-}
-
-function mapType(type: number | string): string {
-  if (typeof type === "string") return type;
-  const types: Record<number, string> = {
-    0: "Text",
-    1: "Integer",
-    2: "Decimal",
-    3: "DateTime",
-    4: "YesNo",
-    5: "Double",
-    6: "Binary",
-  };
-  return types[type] ?? `Unknown(${type})`;
-}
-
+/** Map Graph columnDefinition type object to a simple type string. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function formatMappings(raw: any): string | null {
-  if (!raw) return null;
-  if (typeof raw === "string") return raw;
-  if (Array.isArray(raw)) {
-    return raw
-      .map((m) =>
-        typeof m === "string"
-          ? m
-          : m.CrawledPropertyName ?? m.crawledPropertyName ?? ""
-      )
-      .filter(Boolean)
-      .join(", ");
+function resolveColumnType(col: any): string {
+  if (col.text) return "Text";
+  if (col.choice) return "Choice";
+  if (col.number) return "Number";
+  if (col.dateTime) return "DateTime";
+  if (col.boolean) return "YesNo";
+  if (col.currency) return "Currency";
+  if (col.lookup) return "Lookup";
+  if (col.personOrGroup) return "PersonOrGroup";
+  if (col.calculated) return "Calculated";
+  if (col.contentApprovalStatus) return "ContentApprovalStatus";
+  if (col.hyperlinkOrPicture) return "Hyperlink";
+  if (col.geolocation) return "Geolocation";
+  return "Text";
+}
+
+/** Fetch site columns from the root SharePoint site via Microsoft Graph API.
+ *  Uses /v1.0/sites/root/columns — works with Sites.Read.All (Graph token). */
+async function fetchSiteColumns(token: string): Promise<DiscoveredColumn[]> {
+  const allColumns: DiscoveredColumn[] = [];
+  let nextUrl: string | null =
+    "https://graph.microsoft.com/v1.0/sites/root/columns?$top=250";
+
+  while (nextUrl) {
+    console.log("[search-schema] Fetching:", nextUrl);
+    const response: Response = await fetch(nextUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("[search-schema] Graph columns API failed:", response.status, text.slice(0, 500));
+      throw new Error(
+        `Graph columns API failed (${response.status}): ${text.slice(0, 200)}`
+      );
+    }
+
+    const data: { value?: unknown[]; "@odata.nextLink"?: string } = await response.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const columns: any[] = data.value ?? [];
+    console.log("[search-schema] Got", columns.length, "columns in this page");
+
+    for (const col of columns) {
+      if (!col.name) continue;
+      // Skip hidden/system columns that start with _ (internal SharePoint columns)
+      if (col.hidden && col.name.startsWith("_")) continue;
+
+      allColumns.push({
+        name: col.name,
+        displayName: col.displayName ?? col.name,
+        type: resolveColumnType(col),
+        indexed: Boolean(col.indexed),
+        readOnly: Boolean(col.readOnly),
+      });
+    }
+
+    nextUrl = data["@odata.nextLink"] ?? null;
   }
-  // OData results wrapper
-  if (raw.results && Array.isArray(raw.results)) {
-    return formatMappings(raw.results);
-  }
-  return null;
+
+  console.log("[search-schema] Total columns discovered:", allColumns.length);
+  return allColumns;
 }
 
 async function scrapeAndStore(
   tenantId: string,
   token: string
 ): Promise<{ properties: unknown[]; source: string; count: number }> {
-  const spRoot = await getSharePointRoot(token);
-  const managed = await fetchManagedProperties(spRoot, token);
+  const columns = await fetchSiteColumns(token);
   const now = new Date();
 
-  // Upsert all properties
-  for (const prop of managed) {
-    if (!prop.ManagedPropertyName) continue;
+  // Upsert all columns as discovered properties
+  for (const col of columns) {
     await prisma.discoveredProperty.upsert({
       where: {
-        tenantId_name: { tenantId, name: prop.ManagedPropertyName },
+        tenantId_name: { tenantId, name: col.name },
       },
       create: {
         tenantId,
-        name: prop.ManagedPropertyName,
-        type: prop.ManagedPropertyType,
-        searchable: prop.Searchable,
-        queryable: prop.Queryable,
-        retrievable: prop.Retrievable,
-        refinable: prop.Refinable !== "No",
-        mappings: prop.Mappings,
+        name: col.name,
+        type: col.type,
+        searchable: true,
+        queryable: true,
+        retrievable: !col.readOnly,
+        refinable: col.indexed || col.type === "Choice",
+        mappings: col.displayName !== col.name ? col.displayName : null,
         lastScrapedAt: now,
       },
       update: {
-        type: prop.ManagedPropertyType,
-        searchable: prop.Searchable,
-        queryable: prop.Queryable,
-        retrievable: prop.Retrievable,
-        refinable: prop.Refinable !== "No",
-        mappings: prop.Mappings,
+        type: col.type,
+        searchable: true,
+        queryable: true,
+        retrievable: !col.readOnly,
+        refinable: col.indexed || col.type === "Choice",
+        mappings: col.displayName !== col.name ? col.displayName : null,
         lastScrapedAt: now,
       },
     });
