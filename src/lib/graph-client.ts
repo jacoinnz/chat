@@ -1,9 +1,4 @@
-import {
-  type IPublicClientApplication,
-  type AccountInfo,
-  InteractionRequiredAuthError,
-} from "@azure/msal-browser";
-import { graphScopes } from "./msal-config";
+import type { IPublicClientApplication, AccountInfo } from "@azure/msal-browser";
 
 interface GraphClientOptions {
   scopes?: string[];
@@ -11,27 +6,42 @@ interface GraphClientOptions {
 }
 
 export class GraphClient {
-  private msalInstance: IPublicClientApplication;
-  private scopes: string[];
+  private scopes: string[] | undefined;
   private maxRateLimitRetries: number;
   private cachedToken: string | null = null;
+  private msal: IPublicClientApplication | null = null;
 
-  constructor(
-    msalInstance: IPublicClientApplication,
-    options?: GraphClientOptions
-  ) {
-    this.msalInstance = msalInstance;
-    this.scopes = options?.scopes ?? graphScopes.search;
+  constructor(options?: GraphClientOptions) {
+    this.scopes = options?.scopes;
     this.maxRateLimitRetries = options?.maxRateLimitRetries ?? 3;
   }
 
+  /** Lazy-load the MSAL singleton — only runs in the browser, never during SSR. */
+  private async getMsal(): Promise<IPublicClientApplication> {
+    if (!this.msal) {
+      const { msalInstance } = await import(
+        "@/components/providers/msal-provider"
+      );
+      this.msal = msalInstance;
+    }
+    return this.msal;
+  }
+
+  /** Lazy-load scopes from msal-config. */
+  private async getScopes(): Promise<string[]> {
+    if (this.scopes) return this.scopes;
+    const { graphScopes } = await import("./msal-config");
+    return graphScopes.search;
+  }
+
   /** Active MSAL account (or first available). Throws if none. */
-  get account(): AccountInfo {
-    let account = this.msalInstance.getActiveAccount();
+  async getAccount(): Promise<AccountInfo> {
+    const msal = await this.getMsal();
+    let account = msal.getActiveAccount();
     if (!account) {
-      const accounts = this.msalInstance.getAllAccounts();
+      const accounts = msal.getAllAccounts();
       if (accounts.length > 0) {
-        this.msalInstance.setActiveAccount(accounts[0]);
+        msal.setActiveAccount(accounts[0]);
         account = accounts[0];
       } else {
         throw new Error("No active account. Please sign in first.");
@@ -42,9 +52,9 @@ export class GraphClient {
 
   /** Derive SharePoint root URL from account username.
    *  e.g. user@contoso.onmicrosoft.com → https://contoso.sharepoint.com */
-  getSharePointRoot(): string | undefined {
+  async getSharePointRoot(): Promise<string | undefined> {
     try {
-      const acct = this.account;
+      const acct = await this.getAccount();
       if (!acct.username) return undefined;
       const domain = acct.username.split("@")[1];
       if (!domain) return undefined;
@@ -61,21 +71,23 @@ export class GraphClient {
   }
 
   private async acquireToken(forceRefresh = false): Promise<string> {
-    const account = this.account;
+    const msal = await this.getMsal();
+    const account = await this.getAccount();
+    const scopes = await this.getScopes();
     try {
-      const response = await this.msalInstance.acquireTokenSilent({
-        scopes: this.scopes,
+      const response = await msal.acquireTokenSilent({
+        scopes,
         account,
         forceRefresh,
       });
       this.cachedToken = response.accessToken;
       return response.accessToken;
     } catch (err) {
+      const { InteractionRequiredAuthError } = await import(
+        "@azure/msal-browser"
+      );
       if (err instanceof InteractionRequiredAuthError) {
-        await this.msalInstance.acquireTokenRedirect({
-          scopes: this.scopes,
-          account,
-        });
+        await msal.acquireTokenRedirect({ scopes, account });
         return "";
       }
       throw err;

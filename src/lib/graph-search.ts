@@ -91,7 +91,7 @@ export async function searchSharePoint(
   const searchFields = Array.from(new Set([...ESSENTIAL_FIELDS, ...tenantFields]));
 
   // Get SharePoint root URL for constructing file URLs from server-relative paths
-  const sharePointRoot = client.getSharePointRoot();
+  const sharePointRoot = await client.getSharePointRoot();
 
   // Step 3: Query SharePoint via Graph Search API
   const requestBody = {

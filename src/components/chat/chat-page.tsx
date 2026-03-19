@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useMsal } from "@azure/msal-react";
 import { FilterBar } from "./filter-bar";
 import { SiteSelector } from "./site-selector";
 import { MessageList } from "./message-list";
@@ -46,8 +45,7 @@ async function logUsage(
 }
 
 export function ChatPage() {
-  const { instance } = useMsal();
-  const graphClient = useMemo(() => new GraphClient(instance), [instance]);
+  const graphClient = useMemo(() => new GraphClient(), []);
   const { config } = useTenantConfig();
   const { registerExecuteQuery } = useSidebarContext();
   const { recordSearch } = useRecentSearches();

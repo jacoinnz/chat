@@ -11,7 +11,7 @@ import {
 import { MsalProvider } from "@azure/msal-react";
 import { msalConfig } from "@/lib/msal-config";
 
-const msalInstance = new PublicClientApplication(msalConfig);
+export const msalInstance = new PublicClientApplication(msalConfig);
 
 msalInstance.addEventCallback((event: EventMessage) => {
   if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {

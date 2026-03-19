@@ -5,7 +5,8 @@ export async function fetchBrandingLogo(
 ): Promise<string | null> {
   let tenantId: string;
   try {
-    tenantId = client.account.tenantId;
+    const acct = await client.getAccount();
+    tenantId = acct.tenantId;
     if (!tenantId) return null;
   } catch {
     return null;

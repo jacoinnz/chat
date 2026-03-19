@@ -14,7 +14,7 @@ interface GlobalHeaderProps {
 export function GlobalHeader({ onMenuToggle }: GlobalHeaderProps) {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
-  const graphClient = useMemo(() => new GraphClient(instance), [instance]);
+  const graphClient = useMemo(() => new GraphClient(), []);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
