@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkAdmin } from "@/lib/admin-auth";
+import { detectSafetyProperties } from "@/lib/graph-probe";
 
 /** GET /api/admin/onboarding — run readiness checks for tenant setup. */
 export async function GET(request: Request) {
@@ -66,7 +67,22 @@ export async function GET(request: Request) {
       : "ANTHROPIC_API_KEY not set",
   };
 
-  // 4. Config exists
+  // 4. Managed property detection — Status and Sensitivity columns
+  const { hasStatus, hasSensitivity } = await detectSafetyProperties(token);
+  checks.statusProperty = {
+    passed: hasStatus,
+    message: hasStatus
+      ? "Status managed property detected — approvedOnly enabled by default"
+      : "No Status property found — approvedOnly will default to off",
+  };
+  checks.sensitivityProperty = {
+    passed: hasSensitivity,
+    message: hasSensitivity
+      ? "Sensitivity managed property detected — hideRestricted enabled by default"
+      : "No Sensitivity property found — hideRestricted will default to off",
+  };
+
+  // 5. Config exists
   const config = await prisma.tenantConfig.findUnique({
     where: { tenantId: auth.tenantId },
   });

@@ -21,6 +21,14 @@ const DEFAULTS = {
   searchBehaviour: DEFAULT_SEARCH_BEHAVIOUR,
 };
 
+// Browser-side cache: 2 minutes fresh, serve stale up to 5 minutes while revalidating.
+// This is the primary caching layer in serverless — in-memory TtlCache is a bonus
+// that only helps when the same container handles multiple requests.
+const CACHE_HEADERS = {
+  "Cache-Control": "private, max-age=120, stale-while-revalidate=300",
+  "Vary": "Authorization",
+};
+
 /** GET /api/tenant-config — returns tenant config or defaults.
  *  No auto-provisioning for non-admin users. */
 export async function GET(request: Request) {
@@ -32,10 +40,10 @@ export async function GET(request: Request) {
     );
   }
 
-  // Check cache first
+  // Check in-memory cache first (helps during sustained traffic on warm containers)
   const cached = configCache.get(tenantId);
   if (cached) {
-    return NextResponse.json(cached);
+    return NextResponse.json(cached, { headers: CACHE_HEADERS });
   }
 
   try {
@@ -45,7 +53,7 @@ export async function GET(request: Request) {
 
     if (!config) {
       configCache.set(tenantId, DEFAULTS);
-      return NextResponse.json(DEFAULTS);
+      return NextResponse.json(DEFAULTS, { headers: CACHE_HEADERS });
     }
 
     const result = {
@@ -59,8 +67,8 @@ export async function GET(request: Request) {
     };
 
     configCache.set(tenantId, result);
-    return NextResponse.json(result);
+    return NextResponse.json(result, { headers: CACHE_HEADERS });
   } catch {
-    return NextResponse.json(DEFAULTS);
+    return NextResponse.json(DEFAULTS, { headers: CACHE_HEADERS });
   }
 }

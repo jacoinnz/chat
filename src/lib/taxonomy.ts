@@ -98,15 +98,22 @@ export const TAXONOMY = {
 // listItem.fields values for display on result cards.
 // Names must match SharePoint site column internal names (PascalCase).
 
-export const SEARCH_FIELDS = [
-  // Built-in list column names (returned by Graph Search fields parameter)
+// IMPORTANT: These fields MUST always be requested or normalizeHit()
+// cannot reconstruct webUrl/name from driveItem results.
+// Never allow tenant config to remove these — only extend them.
+export const ESSENTIAL_FIELDS = [
   "FileLeafRef",      // Filename with extension (list column)
   "FileRef",          // Server-relative URL path (list column)
-  "Title",            // List item title (list column)
-  "ContentType",      // SharePoint content type (list column)
-  // Search managed properties (may also be returned by Graph Search)
   "Path",             // Full URL to the document
   "Filename",         // File name with extension
+  "Title",            // List item title (fallback name)
+] as const;
+
+export const SEARCH_FIELDS = [
+  ...ESSENTIAL_FIELDS,
+  // Built-in list column names
+  "ContentType",      // SharePoint content type (list column)
+  // Search managed properties
   "Author",           // Author display name
   "LastModifiedTime", // Modified ISO datetime
   "Created",          // Created ISO datetime

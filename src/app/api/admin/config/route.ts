@@ -11,6 +11,7 @@ import {
   DEFAULT_REVIEW_POLICIES,
   DEFAULT_SEARCH_BEHAVIOUR,
 } from "@/lib/taxonomy-defaults";
+import { detectSafetyProperties } from "@/lib/graph-probe";
 import { fullConfigSchema, validateBody } from "@/lib/validations";
 import type { Prisma } from "@prisma/client";
 
@@ -35,6 +36,17 @@ export async function GET(request: Request) {
     });
 
     if (!config) {
+      // Probe the tenant's SharePoint search schema for Status/Sensitivity
+      // managed properties. If they exist and have data, enable safety toggles
+      // by default. Otherwise leave them off to avoid zero-result searches.
+      const token = request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
+      const { hasStatus, hasSensitivity } = await detectSafetyProperties(token);
+      const searchBehaviour = {
+        ...DEFAULT_SEARCH_BEHAVIOUR,
+        approvedOnly: hasStatus,
+        hideRestricted: hasSensitivity,
+      };
+
       config = await prisma.tenantConfig.create({
         data: {
           tenantId,
@@ -44,7 +56,7 @@ export async function GET(request: Request) {
           searchFields: json(DEFAULT_SEARCH_FIELDS),
           keywords: json(DEFAULT_KEYWORDS),
           reviewPolicies: json(DEFAULT_REVIEW_POLICIES),
-          searchBehaviour: json(DEFAULT_SEARCH_BEHAVIOUR),
+          searchBehaviour: json(searchBehaviour),
         },
       });
     }
