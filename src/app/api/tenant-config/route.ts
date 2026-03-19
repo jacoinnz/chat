@@ -52,8 +52,9 @@ export async function GET(request: Request) {
     });
 
     if (!config) {
-      configCache.set(tenantId, DEFAULTS);
-      return NextResponse.json(DEFAULTS, { headers: CACHE_HEADERS });
+      const result = { ...DEFAULTS, configExists: false };
+      configCache.set(tenantId, result);
+      return NextResponse.json(result, { headers: CACHE_HEADERS });
     }
 
     const result = {
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
       keywords: config.keywords ?? DEFAULT_KEYWORDS,
       reviewPolicies: config.reviewPolicies ?? DEFAULT_REVIEW_POLICIES,
       searchBehaviour: config.searchBehaviour ?? DEFAULT_SEARCH_BEHAVIOUR,
+      configExists: true,
     };
 
     configCache.set(tenantId, result);

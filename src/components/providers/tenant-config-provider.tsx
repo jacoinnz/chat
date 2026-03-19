@@ -32,11 +32,13 @@ const DEFAULT_CONFIG: TenantTaxonomyConfig = {
 
 interface TenantConfigContextValue {
   config: TenantTaxonomyConfig;
+  configExists: boolean;
   isLoading: boolean;
 }
 
 const TenantConfigContext = createContext<TenantConfigContextValue>({
   config: DEFAULT_CONFIG,
+  configExists: true,
   isLoading: true,
 });
 
@@ -47,6 +49,7 @@ export function useTenantConfig() {
 export function TenantConfigProvider({ children }: { children: ReactNode }) {
   const { instance } = useMsal();
   const [config, setConfig] = useState<TenantTaxonomyConfig>(DEFAULT_CONFIG);
+  const [configExists, setConfigExists] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -82,6 +85,7 @@ export function TenantConfigProvider({ children }: { children: ReactNode }) {
         if (!cancelled && response.ok) {
           const data = await response.json();
           setConfig(data);
+          setConfigExists(data.configExists !== false);
         }
       } catch {
         // Fall back to defaults on any error
@@ -97,7 +101,7 @@ export function TenantConfigProvider({ children }: { children: ReactNode }) {
   }, [instance]);
 
   return (
-    <TenantConfigContext.Provider value={{ config, isLoading }}>
+    <TenantConfigContext.Provider value={{ config, configExists, isLoading }}>
       {children}
     </TenantConfigContext.Provider>
   );
