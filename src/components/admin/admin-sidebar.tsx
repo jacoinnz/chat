@@ -19,6 +19,7 @@ import {
   Upload,
   Activity,
   Shield,
+  Database,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -45,11 +46,13 @@ const NAV_SECTIONS = [
       { href: "/admin/review-policies", label: "Review Policies", icon: ClipboardCheck },
       { href: "/admin/search-behaviour", label: "Search Behaviour", icon: SlidersHorizontal },
       { href: "/admin/kql-config", label: "KQL Mapping", icon: Search },
+      { href: "/admin/schema-discovery", label: "Schema Discovery", icon: Database },
     ],
   },
   {
     label: "Administration",
     items: [
+      { href: "/onboarding", label: "Setup Wizard", icon: CheckCircle },
       { href: "/admin/onboarding", label: "Onboarding", icon: CheckCircle },
       { href: "/admin/roles", label: "Role Management", icon: UserCog },
       { href: "/admin/feature-flags", label: "Feature Flags", icon: Flag },
