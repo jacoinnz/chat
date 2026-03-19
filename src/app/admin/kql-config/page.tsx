@@ -18,7 +18,8 @@ export default function KqlConfigPage() {
   const [hasDraft, setHasDraft] = useState(false);
   const [draftInfo, setDraftInfo] = useState<DraftInfo | null>(null);
   const [fullConfig, setFullConfig] = useState<Record<string, unknown> | null>(null);
-  const { save: doSave, saving, message, setMessage } = useAdminSave();
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const { save: doSave, saving, message, setMessage } = useAdminSave({ optimistic: true });
 
   useEffect(() => {
     let cancelled = false;
@@ -57,16 +58,47 @@ export default function KqlConfigPage() {
   }, [getToken]);
 
   const handleSave = useCallback(async () => {
+    setWarnings([]);
+
     const [mapOk, fieldsOk] = await Promise.all([
       doSave("/api/admin/kql-map", { kqlPropertyMap }, "KQL configuration saved successfully"),
       doSave("/api/admin/search-fields", { searchFields }, "KQL configuration saved successfully"),
     ]);
     if (!mapOk || !fieldsOk) {
       setMessage({ type: "error", text: "Failed to save some settings" });
+      return;
     }
-  }, [doSave, kqlPropertyMap, searchFields, setMessage]);
+
+    // Validate properties against tenant search schema (non-blocking)
+    try {
+      const propertyNames = [
+        ...new Set([...Object.values(kqlPropertyMap), ...searchFields]),
+      ];
+      const token = await getToken();
+      const res = await fetch("/api/admin/validate-properties", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ properties: propertyNames }),
+      });
+      if (res.ok) {
+        const { results } = await res.json();
+        const invalid = Object.entries(results)
+          .filter(([, valid]) => !valid)
+          .map(([name]) => name);
+        if (invalid.length > 0) setWarnings(invalid);
+      }
+    } catch {
+      // Validation failure is non-fatal — config was already saved
+    }
+  }, [doSave, kqlPropertyMap, searchFields, setMessage, getToken]);
 
   const handleSaveAsDraft = useCallback(async () => {
+    const prevHasDraft = hasDraft;
+    setHasDraft(true);
+    setMessage({ type: "success", text: "Saved as draft" });
     try {
       const token = await getToken();
       const snapshot = { ...fullConfig, kqlPropertyMap, searchFields };
@@ -75,58 +107,68 @@ export default function KqlConfigPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ snapshot }),
       });
-      if (response.ok) {
-        setMessage({ type: "success", text: "Saved as draft" });
-        setHasDraft(true);
-      } else {
+      if (!response.ok) {
+        setHasDraft(prevHasDraft);
         setMessage({ type: "error", text: "Failed to save draft" });
       }
     } catch {
+      setHasDraft(prevHasDraft);
       setMessage({ type: "error", text: "Failed to save draft" });
     }
-  }, [getToken, fullConfig, kqlPropertyMap, searchFields, setMessage]);
+  }, [getToken, fullConfig, kqlPropertyMap, searchFields, setMessage, hasDraft]);
 
   const handlePublish = useCallback(async () => {
+    const prevHasDraft = hasDraft;
+    const prevDraftInfo = draftInfo;
+    setHasDraft(false);
+    setDraftInfo(null);
+    setMessage({ type: "success", text: "Draft published successfully" });
     try {
       const token = await getToken();
       const response = await fetch("/api/admin/config/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        setMessage({ type: "success", text: "Draft published successfully" });
-        setHasDraft(false);
-        setDraftInfo(null);
-      } else {
+      if (!response.ok) {
+        setHasDraft(prevHasDraft);
+        setDraftInfo(prevDraftInfo);
         setMessage({ type: "error", text: "Failed to publish draft" });
       }
     } catch {
+      setHasDraft(prevHasDraft);
+      setDraftInfo(prevDraftInfo);
       setMessage({ type: "error", text: "Failed to publish draft" });
     }
-  }, [getToken, setMessage]);
+  }, [getToken, setMessage, hasDraft, draftInfo]);
 
   const handleDiscard = useCallback(async () => {
+    const prevHasDraft = hasDraft;
+    const prevDraftInfo = draftInfo;
+    setHasDraft(false);
+    setDraftInfo(null);
+    setMessage({ type: "success", text: "Draft discarded" });
     try {
       const token = await getToken();
       const response = await fetch("/api/admin/config/draft", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        setMessage({ type: "success", text: "Draft discarded" });
-        setHasDraft(false);
-        setDraftInfo(null);
-      } else {
+      if (!response.ok) {
+        setHasDraft(prevHasDraft);
+        setDraftInfo(prevDraftInfo);
         setMessage({ type: "error", text: "Failed to discard draft" });
       }
     } catch {
+      setHasDraft(prevHasDraft);
+      setDraftInfo(prevDraftInfo);
       setMessage({ type: "error", text: "Failed to discard draft" });
     }
-  }, [getToken, setMessage]);
+  }, [getToken, setMessage, hasDraft, draftInfo]);
 
   const handleReset = useCallback(() => {
     setKqlPropertyMap({ ...DEFAULT_KQL_PROPERTY_MAP });
     setSearchFields([...DEFAULT_SEARCH_FIELDS]);
+    setWarnings([]);
     setMessage({ type: "success", text: "Reset to defaults (save to apply)" });
   }, [setMessage]);
 
@@ -145,6 +187,19 @@ export default function KqlConfigPage() {
         <SaveBar saving={saving} onSave={handleSave} onReset={handleReset} onSaveAsDraft={handleSaveAsDraft} />
       </div>
       <MessageBanner message={message} />
+      {warnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <p className="font-medium">Some properties were not found in your tenant&apos;s search schema:</p>
+          <ul className="mt-1 list-disc pl-5">
+            {warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-amber-600">
+            These properties may not return results. Verify the names match your SharePoint managed properties.
+          </p>
+        </div>
+      )}
       {hasDraft && draftInfo && (
         <DraftBanner
           authorName={draftInfo.authorName}

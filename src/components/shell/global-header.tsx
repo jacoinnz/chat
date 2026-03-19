@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useMsal } from "@azure/msal-react";
 import { Menu, HelpCircle, ChevronDown, LogOut, Settings } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { fetchBrandingLogo } from "@/lib/graph-branding";
+import { GraphClient } from "@/lib/graph-client";
 
 interface GlobalHeaderProps {
   onMenuToggle: () => void;
@@ -13,6 +14,7 @@ interface GlobalHeaderProps {
 export function GlobalHeader({ onMenuToggle }: GlobalHeaderProps) {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
+  const graphClient = useMemo(() => new GraphClient(instance), [instance]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -29,9 +31,9 @@ export function GlobalHeader({ onMenuToggle }: GlobalHeaderProps) {
 
   useEffect(() => {
     if (account) {
-      fetchBrandingLogo(instance).then(setLogoUrl);
+      fetchBrandingLogo(graphClient).then(setLogoUrl);
     }
-  }, [account, instance]);
+  }, [account, graphClient]);
 
   useEffect(() => {
     return () => {

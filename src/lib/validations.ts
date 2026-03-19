@@ -102,6 +102,10 @@ export const kqlPropertyMapPatchSchema = z.object({ kqlPropertyMap: kqlPropertyM
 
 export const searchFieldsPatchSchema = z.object({ searchFields: searchFieldsSchema });
 
+export const validatePropertiesSchema = z.object({
+  properties: z.array(sharePointProperty).min(1).max(50),
+});
+
 export const fullConfigSchema = z.object({
   taxonomy: taxonomySchema,
   contentTypes: contentTypesSchema,

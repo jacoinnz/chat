@@ -63,7 +63,8 @@ export function useAdminFetch<T>(
 
 type Message = { type: "success" | "error"; text: string };
 
-export function useAdminSave() {
+export function useAdminSave(options?: { optimistic?: boolean }) {
+  const optimistic = options?.optimistic ?? false;
   const { getToken } = useAdminToken();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
@@ -75,6 +76,34 @@ export function useAdminSave() {
       payload: Record<string, unknown>,
       successMsg = "Saved successfully"
     ): Promise<boolean> => {
+      if (optimistic) {
+        // Show success immediately, fire API in background
+        setMessage({ type: "success", text: successMsg });
+        toasts.success(successMsg);
+        try {
+          const token = await getToken();
+          const response = await fetch(endpoint, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+          if (response.ok) return true;
+          const data = await response.json().catch(() => ({}));
+          const errMsg = data.error || "Failed to save";
+          setMessage({ type: "error", text: errMsg });
+          toasts.error(errMsg);
+          return false;
+        } catch {
+          setMessage({ type: "error", text: "Failed to save" });
+          toasts.error("Failed to save");
+          return false;
+        }
+      }
+
+      // Default blocking behavior
       setSaving(true);
       setMessage(null);
       try {
@@ -105,7 +134,7 @@ export function useAdminSave() {
         setSaving(false);
       }
     },
-    [getToken, toasts]
+    [getToken, toasts, optimistic]
   );
 
   const clearMessage = useCallback(() => setMessage(null), []);
@@ -133,7 +162,7 @@ export function useAdminConfig<T>(
   const [loading, setLoading] = useState(true);
   const [draftInfo, setDraftInfo] = useState<DraftInfo | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
-  const { save: doSave, saving, message, setMessage, clearMessage } = useAdminSave();
+  const { save: doSave, saving, message, setMessage, clearMessage } = useAdminSave({ optimistic: true });
   const toasts = useToast();
 
   // Store full config ref for draft snapshots
@@ -188,6 +217,10 @@ export function useAdminConfig<T>(
   }, [doSave, saveEndpoint, section, data]);
 
   const saveAsDraft = useCallback(async () => {
+    const prevHasDraft = hasDraft;
+    setHasDraft(true);
+    setMessage({ type: "success", text: "Saved as draft" });
+    toasts.success("Saved as draft");
     try {
       const token = await getToken();
       const snapshot = {
@@ -202,21 +235,25 @@ export function useAdminConfig<T>(
         },
         body: JSON.stringify({ snapshot }),
       });
-      if (response.ok) {
-        setMessage({ type: "success", text: "Saved as draft" });
-        toasts.success("Saved as draft");
-        setHasDraft(true);
-      } else {
+      if (!response.ok) {
+        setHasDraft(prevHasDraft);
         setMessage({ type: "error", text: "Failed to save draft" });
         toasts.error("Failed to save draft");
       }
     } catch {
+      setHasDraft(prevHasDraft);
       setMessage({ type: "error", text: "Failed to save draft" });
       toasts.error("Failed to save draft");
     }
-  }, [getToken, section, data, setMessage, toasts]);
+  }, [getToken, section, data, setMessage, toasts, hasDraft]);
 
   const publishDraft = useCallback(async () => {
+    const prevHasDraft = hasDraft;
+    const prevDraftInfo = draftInfo;
+    setHasDraft(false);
+    setDraftInfo(null);
+    setMessage({ type: "success", text: "Draft published successfully" });
+    toasts.success("Draft published successfully");
     try {
       const token = await getToken();
       const response = await fetch("/api/admin/config/publish", {
@@ -226,42 +263,46 @@ export function useAdminConfig<T>(
           Authorization: `Bearer ${token}`,
         },
       });
-      if (response.ok) {
-        setMessage({ type: "success", text: "Draft published successfully" });
-        toasts.success("Draft published successfully");
-        setHasDraft(false);
-        setDraftInfo(null);
-      } else {
+      if (!response.ok) {
+        setHasDraft(prevHasDraft);
+        setDraftInfo(prevDraftInfo);
         setMessage({ type: "error", text: "Failed to publish draft" });
         toasts.error("Failed to publish draft");
       }
     } catch {
+      setHasDraft(prevHasDraft);
+      setDraftInfo(prevDraftInfo);
       setMessage({ type: "error", text: "Failed to publish draft" });
       toasts.error("Failed to publish draft");
     }
-  }, [getToken, setMessage, toasts]);
+  }, [getToken, setMessage, toasts, hasDraft, draftInfo]);
 
   const discardDraft = useCallback(async () => {
+    const prevHasDraft = hasDraft;
+    const prevDraftInfo = draftInfo;
+    setHasDraft(false);
+    setDraftInfo(null);
+    setMessage({ type: "success", text: "Draft discarded" });
+    toasts.info("Draft discarded");
     try {
       const token = await getToken();
       const response = await fetch("/api/admin/config/draft", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        setMessage({ type: "success", text: "Draft discarded" });
-        toasts.info("Draft discarded");
-        setHasDraft(false);
-        setDraftInfo(null);
-      } else {
+      if (!response.ok) {
+        setHasDraft(prevHasDraft);
+        setDraftInfo(prevDraftInfo);
         setMessage({ type: "error", text: "Failed to discard draft" });
         toasts.error("Failed to discard draft");
       }
     } catch {
+      setHasDraft(prevHasDraft);
+      setDraftInfo(prevDraftInfo);
       setMessage({ type: "error", text: "Failed to discard draft" });
       toasts.error("Failed to discard draft");
     }
-  }, [getToken, setMessage, toasts]);
+  }, [getToken, setMessage, toasts, hasDraft, draftInfo]);
 
   const reset = useCallback(
     (defaults: T) => {

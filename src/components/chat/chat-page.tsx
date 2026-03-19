@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useMsal } from "@azure/msal-react";
 import { FilterBar } from "./filter-bar";
 import { SiteSelector } from "./site-selector";
@@ -8,33 +8,29 @@ import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { EmptyState } from "./empty-state";
 import { DocumentPreviewPanel } from "./document-preview-panel";
+import { ChatErrorBoundary } from "./chat-error-boundary";
 import { searchSharePoint, fetchUserSites } from "@/lib/graph-search";
+import { GraphClient } from "@/lib/graph-client";
 import { buildDocumentContext, buildConversationHistory } from "@/lib/context-builder";
 import { useTenantConfig } from "@/components/providers/tenant-config-provider";
 import { useSidebarContext } from "@/components/shell/sidebar-context";
 import { useRecentSearches, useFavorites } from "@/hooks/use-user-data";
-import { graphScopes } from "@/lib/msal-config";
 import type { MetadataFilters } from "@/lib/taxonomy";
 import type { ChatMessage, ChatApiRequest, SharePointSite, SearchHit } from "@/types/search";
 
 /** Fire-and-forget usage log. Non-blocking — failures are silently ignored. */
 async function logUsage(
-  instance: ReturnType<typeof useMsal>["instance"],
+  client: GraphClient,
   event: "search" | "chat" | "error" | "no_results" | "graph_error" | "auth_error",
   extra?: { errorCode?: string; resultCount?: number; filtersUsed?: MetadataFilters; intentType?: string }
 ) {
   try {
-    const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
-    if (!account) return;
-    const tokenResponse = await instance.acquireTokenSilent({
-      scopes: graphScopes.search,
-      account,
-    });
+    const token = await client.getToken();
     fetch("/api/usage", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${tokenResponse.accessToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         event,
@@ -51,6 +47,7 @@ async function logUsage(
 
 export function ChatPage() {
   const { instance } = useMsal();
+  const graphClient = useMemo(() => new GraphClient(instance), [instance]);
   const { config } = useTenantConfig();
   const { registerExecuteQuery } = useSidebarContext();
   const { recordSearch } = useRecentSearches();
@@ -100,23 +97,18 @@ export function ChatPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    fetchUserSites(instance).then(setSites).catch(() => {});
-  }, [instance]);
+    fetchUserSites(graphClient).then(setSites).catch(() => {});
+  }, [graphClient]);
 
   const handleFeedback = useCallback(
     async (messageId: string, type: "thumbs_up" | "thumbs_down") => {
       try {
-        const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
-        if (!account) return;
-        const tokenResponse = await instance.acquireTokenSilent({
-          scopes: graphScopes.search,
-          account,
-        });
+        const token = await graphClient.getToken();
         fetch("/api/feedback", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${tokenResponse.accessToken}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ messageId, feedbackType: type }),
         }).catch(() => {});
@@ -124,7 +116,7 @@ export function ChatPage() {
         // Best-effort
       }
     },
-    [instance]
+    [graphClient]
   );
 
   const handleSendMessage = useCallback(
@@ -157,8 +149,8 @@ export function ChatPage() {
 
       try {
         // Phase 1: Search SharePoint (with tenant config)
-        const { hits, total, intent } = await searchSharePoint(instance, query, filters, undefined, config);
-        logUsage(instance, "search", {
+        const { hits, total, intent } = await searchSharePoint(graphClient, query, filters, undefined, config);
+        logUsage(graphClient, "search", {
           resultCount: hits.length,
           filtersUsed: filters,
           intentType: intent.intent,
@@ -168,7 +160,7 @@ export function ChatPage() {
         recordSearch(query, hits.length);
 
         if (hits.length === 0) {
-          logUsage(instance, "no_results", { intentType: intent.intent });
+          logUsage(graphClient, "no_results", { intentType: intent.intent });
           setSrAnnouncement("No results found");
           setMessages((prev) =>
             prev.map((m) =>
@@ -276,7 +268,7 @@ export function ChatPage() {
               : m
           )
         );
-        logUsage(instance, "chat");
+        logUsage(graphClient, "chat");
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           // Stream was aborted by user sending a new message
@@ -293,7 +285,7 @@ export function ChatPage() {
         const isAuthError = errorMsg.includes("No active account") || errorMsg.includes("acquireToken");
         const eventType = isGraphError ? "graph_error" : isAuthError ? "auth_error" : "error";
 
-        logUsage(instance, eventType, { errorCode: errorMsg });
+        logUsage(graphClient, eventType, { errorCode: errorMsg });
 
         setMessages((prev) =>
           prev.map((m) =>
@@ -314,7 +306,7 @@ export function ChatPage() {
         abortRef.current = null;
       }
     },
-    [instance, filters, messages, config, recordSearch]
+    [graphClient, filters, messages, config, recordSearch]
   );
 
   const isEmptyState = messages.length === 1 && messages[0].id === "welcome";
@@ -333,25 +325,29 @@ export function ChatPage() {
       />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isEmptyState ? (
-            <EmptyState onSelectQuery={handleSelectQuery} />
-          ) : (
-            <MessageList
-              messages={messages}
-              onFeedback={handleFeedback}
-              onSelectQuery={handleSelectQuery}
-              onPreview={setPreviewHit}
-              favoritedUrls={favoritedUrls}
-              onToggleFavorite={toggleFavorite}
-            />
-          )}
+          <ChatErrorBoundary>
+            {isEmptyState ? (
+              <EmptyState onSelectQuery={handleSelectQuery} />
+            ) : (
+              <MessageList
+                messages={messages}
+                onFeedback={handleFeedback}
+                onSelectQuery={handleSelectQuery}
+                onPreview={setPreviewHit}
+                favoritedUrls={favoritedUrls}
+                onToggleFavorite={toggleFavorite}
+              />
+            )}
+          </ChatErrorBoundary>
           <ChatInput onSend={handleSendMessage} disabled={isSearching} />
         </div>
         {previewHit && (
-          <DocumentPreviewPanel
-            hit={previewHit}
-            onClose={() => setPreviewHit(null)}
-          />
+          <ChatErrorBoundary>
+            <DocumentPreviewPanel
+              hit={previewHit}
+              onClose={() => setPreviewHit(null)}
+            />
+          </ChatErrorBoundary>
         )}
       </div>
       {/* Screen reader announcements */}

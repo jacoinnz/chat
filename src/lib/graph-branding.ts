@@ -1,53 +1,20 @@
-import { IPublicClientApplication } from "@azure/msal-browser";
-import { graphScopes } from "./msal-config";
-
-async function getAccessToken(
-  msalInstance: IPublicClientApplication
-): Promise<string> {
-  let account = msalInstance.getActiveAccount();
-  if (!account) {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-      msalInstance.setActiveAccount(accounts[0]);
-      account = accounts[0];
-    } else {
-      throw new Error("No active account");
-    }
-  }
-
-  try {
-    const response = await msalInstance.acquireTokenSilent({
-      scopes: graphScopes.search,
-      account,
-    });
-    return response.accessToken;
-  } catch {
-    throw new Error("Failed to acquire token");
-  }
-}
+import { GraphClient } from "./graph-client";
 
 export async function fetchBrandingLogo(
-  msalInstance: IPublicClientApplication
+  client: GraphClient
 ): Promise<string | null> {
-  const account =
-    msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0];
-  if (!account) return null;
-
-  const tenantId = account.tenantId;
-  if (!tenantId) return null;
+  let tenantId: string;
+  try {
+    tenantId = client.account.tenantId;
+    if (!tenantId) return null;
+  } catch {
+    return null;
+  }
 
   try {
-    const accessToken = await getAccessToken(msalInstance);
-
-    // Try banner logo first, then square logo
     for (const logoType of ["bannerLogo", "squareLogo"]) {
-      const response = await fetch(
-        `https://graph.microsoft.com/v1.0/organization/${tenantId}/branding/localizations/default/${logoType}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      const response = await client.get(
+        `https://graph.microsoft.com/v1.0/organization/${tenantId}/branding/localizations/default/${logoType}`
       );
 
       if (response.ok) {
@@ -57,7 +24,6 @@ export async function fetchBrandingLogo(
         }
       }
     }
-
     return null;
   } catch {
     return null;
