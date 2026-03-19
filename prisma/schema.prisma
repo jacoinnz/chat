@@ -167,3 +167,20 @@ model RecentSearch {
 
   @@index([tenantId, userHash, createdAt])
 }
+
+model DiscoveredProperty {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  type          String
+  searchable    Boolean  @default(false)
+  queryable     Boolean  @default(true)
+  retrievable   Boolean  @default(false)
+  refinable     Boolean  @default(false)
+  mappings      String?
+  lastScrapedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
