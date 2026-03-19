@@ -43,9 +43,11 @@ export async function GET(request: Request) {
       request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
     const result = await scrapeAndStore(tenantId, token);
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[search-schema] GET error:", message);
     return NextResponse.json(
-      { error: "Failed to load search schema" },
+      { error: `Failed to load search schema: ${message}` },
       { status: 500 }
     );
   }
@@ -65,9 +67,11 @@ export async function POST(request: Request) {
       request.headers.get("authorization")?.replace("Bearer ", "") ?? "";
     const result = await scrapeAndStore(tenantId, token);
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[search-schema] POST error:", message);
     return NextResponse.json(
-      { error: "Failed to scrape search schema" },
+      { error: `Failed to scrape search schema: ${message}` },
       { status: 500 }
     );
   }
