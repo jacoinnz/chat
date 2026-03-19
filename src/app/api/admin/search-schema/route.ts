@@ -116,14 +116,12 @@ async function fetchSiteColumns(token: string): Promise<DiscoveredColumn[]> {
     "https://graph.microsoft.com/v1.0/sites/root/columns?$top=250";
 
   while (nextUrl) {
-    console.log("[search-schema] Fetching:", nextUrl);
     const response: Response = await fetch(nextUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
       const text = await response.text();
-      console.error("[search-schema] Graph columns API failed:", response.status, text.slice(0, 500));
       throw new Error(
         `Graph columns API failed (${response.status}): ${text.slice(0, 200)}`
       );
@@ -132,7 +130,6 @@ async function fetchSiteColumns(token: string): Promise<DiscoveredColumn[]> {
     const data: { value?: unknown[]; "@odata.nextLink"?: string } = await response.json();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const columns: any[] = data.value ?? [];
-    console.log("[search-schema] Got", columns.length, "columns in this page");
 
     for (const col of columns) {
       if (!col.name) continue;
@@ -151,7 +148,6 @@ async function fetchSiteColumns(token: string): Promise<DiscoveredColumn[]> {
     nextUrl = data["@odata.nextLink"] ?? null;
   }
 
-  console.log("[search-schema] Total columns discovered:", allColumns.length);
   return allColumns;
 }
 
