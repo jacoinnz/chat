@@ -20,6 +20,7 @@ import {
   Activity,
   Shield,
   Database,
+  Sparkles,
 } from "lucide-react";
 
 const NAV_SECTIONS = [
@@ -47,6 +48,12 @@ const NAV_SECTIONS = [
       { href: "/admin/search-behaviour", label: "Search Behaviour", icon: SlidersHorizontal },
       { href: "/admin/kql-config", label: "KQL Mapping", icon: Search },
       { href: "/admin/schema-discovery", label: "Schema Discovery", icon: Database },
+    ],
+  },
+  {
+    label: "AI",
+    items: [
+      { href: "/admin/ai-providers", label: "Provider Settings", icon: Sparkles },
     ],
   },
   {

@@ -157,6 +157,22 @@ export const configImportSchema = z.object({
   comment: z.string().max(500).optional(),
 });
 
+// ── AI Provider schemas ─────────────────────────────────────────────
+
+export const aiProviderPatchSchema = z.object({
+  provider: z.enum(["anthropic", "openai", "azure_openai"]).optional(),
+  modelId: z.string().min(1).max(200).optional(),
+  keySource: z.enum(["platform", "keyvault"]).optional(),
+  apiKey: z.string().max(500).optional(),
+  keyVaultUrl: z.string().url().optional().or(z.literal("")),
+  keyVaultSecret: z.string().max(200).optional(),
+  azureEndpoint: z.string().url().optional().or(z.literal("")),
+  azureDeployment: z.string().max(200).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(100).max(8192).optional(),
+  enabled: z.boolean().optional(),
+});
+
 // ── User data schemas ────────────────────────────────────────────────
 
 export const savedQueryCreateSchema = z.object({

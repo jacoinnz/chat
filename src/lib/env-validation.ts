@@ -6,6 +6,8 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(), // Optional — AI summary disabled when absent
   NEXT_PUBLIC_AZURE_CLIENT_ID: z.string().min(1, "NEXT_PUBLIC_AZURE_CLIENT_ID is required"),
   CRON_SECRET: z.string().optional(),
+  ENCRYPTION_KEY: z.string().optional(),          // 32-byte hex for AES-256-GCM
+  AZURE_KEY_VAULT_URL: z.string().optional(),     // default vault URL (optional)
 });
 
 export type ValidatedEnv = z.infer<typeof envSchema>;

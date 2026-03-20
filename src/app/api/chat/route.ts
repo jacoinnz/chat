@@ -1,12 +1,34 @@
 import { streamText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAzure } from "@ai-sdk/azure";
 import { buildSystemPrompt } from "@/lib/prompts";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { resolveAIKey, type ResolvedAIConfig } from "@/lib/ai-key-resolver";
 import type { ChatApiRequest } from "@/types/search";
 
+function createModelFromResolved(resolved: ResolvedAIConfig) {
+  if (resolved.provider === "openai") {
+    const openai = createOpenAI({ apiKey: resolved.key });
+    return openai(resolved.modelId);
+  }
+  if (resolved.provider === "azure_openai") {
+    const azure = createAzure({
+      apiKey: resolved.key,
+      resourceName: resolved.azureEndpoint?.replace(/^https?:\/\//, "").replace(/\.openai\.azure\.com\/?$/, "") || "",
+    });
+    return azure(resolved.azureDeployment || resolved.modelId);
+  }
+  // Default: Anthropic
+  const anthropic = createAnthropic({ apiKey: resolved.key });
+  return anthropic(resolved.modelId);
+}
+
 export async function POST(request: Request) {
-  // Early exit if AI is not configured — search results still shown on the client
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const tenantId = request.headers.get("x-tenant-id") || "default";
+  const resolved = await resolveAIKey(tenantId);
+
+  if (!resolved) {
     return Response.json(
       { error: "AI service not configured" },
       { status: 503 }
@@ -31,16 +53,17 @@ export async function POST(request: Request) {
     }
 
     const systemPrompt = buildSystemPrompt(body.currentDocuments, body.keywords);
+    const model = createModelFromResolved(resolved);
 
     const result = streamText({
-      model: anthropic("claude-sonnet-4-20250514"),
+      model,
       system: systemPrompt,
       messages: body.messages.map((m) => ({
         role: m.role,
         content: m.content,
       })),
-      temperature: 0.3,
-      maxOutputTokens: 1024,
+      temperature: resolved.temperature,
+      maxOutputTokens: resolved.maxTokens,
     });
 
     return result.toTextStreamResponse();

@@ -31,17 +31,28 @@ const PERSON_PATTERNS = [
 
 const FILE_TYPE_KEYWORDS: Record<string, string> = {
   excel: "xlsx",
+  xlsx: "xlsx",
   spreadsheet: "xlsx",
   word: "docx",
+  docx: "docx",
+  doc: "docx",
   document: "docx",
   pdf: "pdf",
   powerpoint: "pptx",
+  pptx: "pptx",
   presentation: "pptx",
   image: "png",
   photo: "jpg",
   video: "mp4",
   csv: "csv",
 };
+
+// Pre-compiled regex for stripping file type keywords (longest first, handles plurals)
+const FILE_TYPE_STRIP_RE = new RegExp(
+  `\\b(?:${Object.keys(FILE_TYPE_KEYWORDS).sort((a, b) => b.length - a.length).join("|")})s?\\b`,
+  "gi"
+);
+const FILE_NOISE_RE = /\bfiles?\b/gi;
 
 /** Strip question words from the beginning of a query */
 function stripQuestionWords(query: string): string {
@@ -120,11 +131,12 @@ function detectTaxonomyFilters(
   return filters;
 }
 
-/** Detect file type keyword in query */
+/** Detect file type keyword in query (word-boundary match, handles plurals) */
 function detectFileType(query: string): string | undefined {
-  const lower = query.toLowerCase();
-  for (const [keyword, ext] of Object.entries(FILE_TYPE_KEYWORDS)) {
-    if (lower.includes(keyword)) return ext;
+  // Check longer keywords first to avoid partial matches (e.g. "doc" before "document")
+  const sorted = Object.entries(FILE_TYPE_KEYWORDS).sort(([a], [b]) => b.length - a.length);
+  for (const [keyword, ext] of sorted) {
+    if (new RegExp(`\\b${keyword}s?\\b`, "i").test(query)) return ext;
   }
   return undefined;
 }
@@ -168,11 +180,10 @@ export function analyzeIntent(query: string, config?: TenantTaxonomyConfig): Int
   }
   // Remove recency terms (Graph doesn't understand "latest")
   refinedQuery = refinedQuery.replace(RECENCY_TERMS, "").replace(/\s{2,}/g, " ").trim();
-  // Remove file type keywords (handled via FileType KQL)
+  // Remove file type keywords (handled via FileType KQL filter)
   if (fileType) {
-    for (const [keyword] of Object.entries(FILE_TYPE_KEYWORDS)) {
-      refinedQuery = refinedQuery.replace(new RegExp(`\\b${keyword}\\b`, "gi"), "").trim();
-    }
+    refinedQuery = refinedQuery.replace(FILE_TYPE_STRIP_RE, "");
+    refinedQuery = refinedQuery.replace(FILE_NOISE_RE, "");
     refinedQuery = refinedQuery.replace(/\s{2,}/g, " ").trim();
   }
 
@@ -183,7 +194,7 @@ export function analyzeIntent(query: string, config?: TenantTaxonomyConfig): Int
 
   // Fallback if refinement emptied the query
   if (!refinedQuery) {
-    refinedQuery = trimmed;
+    refinedQuery = fileType ? "*" : trimmed;
   }
 
   return {

@@ -14,7 +14,27 @@ model Tenant {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   config           TenantConfig?
+  aiProvider       AIProviderConfig?
   usageLogs        UsageLog[]
+}
+
+model AIProviderConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  tenant          Tenant   @relation(fields: [tenantId], references: [tenantId], onDelete: Cascade)
+  provider        String   @default("anthropic")   // "anthropic" | "openai" | "azure_openai"
+  modelId         String   @default("claude-sonnet-4-20250514")
+  keySource       String   @default("platform")    // "platform" | "keyvault"
+  encryptedKey    String?                           // AES-256-GCM encrypted API key (platform mode)
+  keyVaultUrl     String?                           // e.g. https://myvault.vault.azure.net
+  keyVaultSecret  String?                           // secret name in Key Vault
+  azureEndpoint   String?                           // Azure OpenAI endpoint (provider=azure_openai only)
+  azureDeployment String?                           // Azure OpenAI deployment name
+  temperature     Float    @default(0.3)
+  maxTokens       Int      @default(1024)
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model TenantConfig {

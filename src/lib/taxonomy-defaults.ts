@@ -94,6 +94,17 @@ export interface SearchBehaviour {
   freshnessWeight: number;
 }
 
+// ── AI Provider Defaults ─────────────────────────────────────────
+
+export const DEFAULT_AI_PROVIDER = {
+  provider: "anthropic" as const,
+  modelId: "claude-sonnet-4-20250514",
+  keySource: "platform" as const,
+  temperature: 0.3,
+  maxTokens: 1024,
+  enabled: true,
+};
+
 export const DEFAULT_SEARCH_BEHAVIOUR: SearchBehaviour = {
   approvedOnly: false,
   hideRestricted: false,
